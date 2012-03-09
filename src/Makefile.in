@@ -34,7 +34,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = cif-router$(EXEEXT)
+bin_PROGRAMS = cif-db$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -47,9 +47,9 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_cif_router_OBJECTS = main.$(OBJEXT)
-cif_router_OBJECTS = $(am_cif_router_OBJECTS)
-cif_router_LDADD = $(LDADD)
+am_cif_db_OBJECTS = main.$(OBJEXT)
+cif_db_OBJECTS = $(am_cif_db_OBJECTS)
+cif_db_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -57,8 +57,8 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(cif_router_SOURCES)
-DIST_SOURCES = $(cif_router_SOURCES)
+SOURCES = $(cif_db_SOURCES)
+DIST_SOURCES = $(cif_db_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -131,7 +131,7 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-cif_router_SOURCES = main.c
+cif_db_SOURCES = main.c
 all: all-am
 
 .SUFFIXES:
@@ -188,9 +188,9 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
-cif-router$(EXEEXT): $(cif_router_OBJECTS) $(cif_router_DEPENDENCIES) 
-	@rm -f cif-router$(EXEEXT)
-	$(LINK) $(cif_router_LDFLAGS) $(cif_router_OBJECTS) $(cif_router_LDADD) $(LIBS)
+cif-db$(EXEEXT): $(cif_db_OBJECTS) $(cif_db_DEPENDENCIES) 
+	@rm -f cif-db$(EXEEXT)
+	$(LINK) $(cif_db_LDFLAGS) $(cif_db_OBJECTS) $(cif_db_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
