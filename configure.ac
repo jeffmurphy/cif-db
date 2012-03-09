@@ -1,4 +1,4 @@
-AC_INIT([cif_router], [1.0], [jcmurphy@jeffmurphy.org])
+AC_INIT([cif_db], [1.0], [jcmurphy@jeffmurphy.org])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 AC_PROG_CC
 AC_CONFIG_HEADERS([config.h])
