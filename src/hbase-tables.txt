@@ -1,0 +1,24 @@
+# We use a generic table for caching raw objects
+create 'cif', 'gen'
+
+# we will store the complete CIF.msg object keyed as
+# 'timestamp-hash' 
+#
+# eg
+#
+# put 'cif', '8589938385-48af43de', 'gen:object', '[serialized protobuf]'
+#
+# putting the ts first groups messages into regions by time (generally)
+# 
+
+
+
+# We'll precreate tables for 'canned' message types.
+# Each table is named after the specific message type
+# and we will explode the message fields into columns
+# the exploding will be done by a background process
+# so as to not slow down the main thread 
+
+
+create 'ICSG-v1_7-2007', 'gen'
+put 'cif', 'row1', 'cf:a', 'value1'
