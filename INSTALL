@@ -1,0 +1,44 @@
+
+cif-db uses Hadoop compression:
+
+wget http://snappy.googlecode.com/files/snappy-1.0.5.tar.gz
+configure
+make install
+svn checkout http://hadoop-snappy.googlecode.com/svn/trunk/ hadoop-snappy-read-only
+cd hadoop-snappy-read-only
+rm -fr target
+mvn install
+
+
+
+ 1144  sudo vi /etc/yum.repos.d/cloudera-cdh4.repo
+
+ 1149  sudo yum install hadoop
+ 1164  sudo yum install hbase
+ 1195  sudo yum install hbase-master hbase-thrift
+ 1198  sudo yum install zookeeper-server hadoop-hdfs-datanode hadoop-hdfs-namenode hadoop-client hadoop-hdfs hadoop-mapreduce
+
+/etc/hadoop/conf/core-site.xml
+/etc/hadoop/conf/hdfs-site.xml
+/etc/hadoop/conf/mapred-site.xml
+
+/etc/hbase/conf/hbase-site.xml
+
+ 1232  sudo /etc/init.d/hadoop-hdfs-namenode start
+ 1234  sudo /etc/init.d/hadoop-hdfs-datanode start 
+
+ 1042  sudo -u hdfs hadoop fs -mkdir /hbase
+ 1043   sudo -u hdfs hadoop fs -chown hbase /hbase
+ 
+  1045  sudo /etc/init.d/hbase-master start
+  
+  hdfs dfs -ls /
+  should show hbase dir
+  
+  hbase shell
+  
+  create 'cif_idl', {NAME=>'cf', COMPRESSION=>'SNAPPY'}
+  scan 'cif_idl'
+  
+  should succeed 
+  

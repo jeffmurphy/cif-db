@@ -10,6 +10,7 @@ import datetime
 import json
 import getopt
 import socket
+import happybase
 
 # adjust to match your $PREFIX if you specified one
 # default PREFIX = /usr/local
@@ -99,6 +100,18 @@ def ctrl(rep, controlport):
     rep = context.socket(zmq.REP);
     rep.bind('tcp://*:' + controlport);
 
+def HBConnection(host):
+    c = happybase.Connection(host)
+    t = c.tables()
+    print "found tables: ", t
+    if not "cifidl" in t:
+        print "missing cifidl table"
+    if not "cifobjs" in t:
+        print "missing cifobjs table"
+        
+def writeToDb(msg):
+    print "Write message to db"
+    
 global req
 
 try:
@@ -130,8 +143,10 @@ print "ZMQ::Context"
 context = zmq.Context()
 myname = myip + ":" + controlport + "|" + myid
 
-
 try:
+    print "Connect to HBase"
+    connection = HBConnection('localhost')
+    
     print "Register with " + cifrouter + " (req->rep)"
     req = ctrlsocket(myname, cifrouter)
     (routerport, routerpubport) = register(req, cifrouter)
@@ -145,8 +160,18 @@ try:
         msg = msg_pb2.MessageType()
         msg.ParseFromString(subscriber.recv())
         print "Got msg: ", msg
+        writeToDb(msg)
         
     unregister(req, cifrouter)
     
 except KeyboardInterrupt:
     ctrlc(req, cifrouter)
+except IOError as e:
+    print "I/O error({0}): {1}".format(e.errno, e.strerror)
+except KeyError as e:
+    print "PB KeyError: ", e
+    traceback.print_exc(file=sys.stdout)
+except Exception as inst:
+    print "Unexpected error: ", sys.exc_info()[0]
+     
+    

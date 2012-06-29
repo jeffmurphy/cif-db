@@ -1,5 +1,41 @@
 # We use a generic table for caching raw objects
-create 'cif', 'gen'
+# 
+# cif_idl purpose
+#     store the IDL for messages we record.
+#     occasionally the IDL is expected to change, we want to
+#     be able to parse old messages. for posterity, the specific
+#     message format will be stored here. If a message is stored
+#     in 'cifobjs' of type "CIF.msg.MessageType" with a version of
+#     20120601 and the version we have available is 20120701, we can
+#     go to this table, retrieve the old version, and parse the message.
+#
+#     rowkey $version-$type   (eg "20120601-CIF.msg.MessageType")
+#     cf:idl-$idltype         (eg "idl-pb2" = [textual obj definition])
+#
+#     that way, given the version and object type we are looking for, 
+#     we can directly extra the IDL in a single lookup.
+disable 'cif_idl'
+drop 'cif_idl'
+create 'cif_idl', {NAME=>'cf', COMPRESSION=>'SNAPPY'}
+
+# cif_objs purpose
+#     this table will store the raw CIF.msg.MessageType objects that
+#     cif_db receives. the idea is to store the raw protocol buffers
+#     and then allow other clients to retrieve them, reinstantiate them
+#     and operate on them. 
+#
+#     additionally, although it's redundant, we will 
+#
+#     rowkey $timestamp-$hash   (eg "8557483858-1efd748384ab")
+#     cf:$idltype               (eg cf:PB=object iow "PB" or "Thrift")
+#     cf:$index-$submsgtype     (eg cf:0-RFC5070-IODEF-v1=object)
+#
+#     this allows the client to quickly grab all objects in a specific
+#     timeframe and of a protocol specific type.
+disable 'cif_objs'
+drop 'cif_objs'
+create 'cif_objs', {NAME=>'cf', COMPRESSION=>'SNAPPY'}
+
 
 # we will store the complete CIF.msg object keyed as
 # 'timestamp-hash' 
@@ -20,5 +56,5 @@ create 'cif', 'gen'
 # so as to not slow down the main thread 
 
 
-create 'ICSG-v1_7-2007', 'gen'
-put 'cif', 'row1', 'cf:a', 'value1'
+#create 'ICSG-v1_7-2007', 'cf'
+#put 'ci_fobjs', '$tstamp-$hash', 'cf:a', 'value1'
