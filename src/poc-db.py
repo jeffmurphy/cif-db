@@ -18,6 +18,7 @@ sys.path.append('/usr/local/lib/cif-protocol/pb-python/gen-py')
 
 import msg_pb2
 import feed_pb2
+import control_pb2
 import RFC5070_IODEF_v1_pb2
 import MAEC_v2_pb2
 import cifsupport
@@ -54,37 +55,72 @@ def subscribersocket(publisher):
     subscriber.setsockopt(zmq.SUBSCRIBE, '')
     return subscriber
 
-def unregister(req, cifrouter):
+def unregister(req, apikey, cifrouter, myid):
     print "Send UNREGISTER to cif-router (" + cifrouter + ")"
-    req.send_multipart(["cif-router", "", "UNREGISTER"])
-    reply = req.recv_multipart();
-    print "Got reply: " , reply
-    if reply[0] == 'UNREGISTERED':
-        print "unregistered successfully"
+    
+    msg = control_pb2.ControlType()
+    msg.version = msg.version # required
+    msg.apikey = apikey
+    msg.type = control_pb2.ControlType.COMMAND
+    msg.command = control_pb2.ControlType.UNREGISTER
+    msg.dst = 'cif-router'
+    msg.src = myid
+    msg.apikey = apikey;
+    
+    req.send(msg.SerializeToString())
+    
+    reply = req.recv()
+    msg.ParseFromString(reply)
+    
+    try:
+        cifsupport.versionCheck(msg)
+    except Exception as e:
+        print "Received message was bad: ", e
     else:
-        print "not sure? " + reply[0]
+        print "\tGot reply."
+        if msg.status == control_pb2.ControlType.SUCCESS:
+            print "\t\tunregistered successfully"
+        else:
+            print "\t\tnot sure? " + msg.status
 
-def register(req, cifrouter):
+def register(apikey, req, myip, myid, cifrouter):
     routerport = 0
     routerpubport = 0
     
     print "Send REGISTER to cif-router (" + cifrouter + ")"
-    req.send_multipart(["cif-router", "", "REGISTER"])
+    
+    msg = control_pb2.ControlType()
+    msg.version = msg.version # required
+    msg.apikey = apikey
+    msg.type = control_pb2.ControlType.COMMAND
+    msg.command = control_pb2.ControlType.REGISTER
+    msg.dst = 'cif-router'
+    msg.src = myid
+    print " Sending REGISTER: " #, msg
+    
+    req.send_multipart([msg.SerializeToString(), ''])
     reply = req.recv_multipart();
-    print "Got reply: " , reply
-    if reply[0] == 'REGISTERED':
-        print "registered successfully"
-        rv = json.loads(reply[2])
-        routerport = rv['REQ']
-        routerpubport = rv['PUB']
-    elif reply[0] == 'ALREADY-REGISTERED':
-        print "already registered?"
 
-    return (routerport, routerpubport)
-        
-def ctrlc(req, cifrouter):
+    print " REGISTER Got reply: " #, reply
+    msg.ParseFromString(reply[0])
+
+    #print " REGISTER decoded: ", msg
+    routerport = msg.registerResponse.REQport
+    routerpubport = msg.registerResponse.PUBport
+    if msg.status == control_pb2.ControlType.SUCCESS:
+        print "  registered successfully"
+        return (routerport, routerpubport)
+    elif msg.status == control_pb2.ControlType.DUPLICATE:
+        print "  already registered?"
+        return (routerport, routerpubport)
+    else:
+        print "  register failed."
+
+    return (0,0)
+
+def ctrlc(req, apikey, cifrouter, myid):
     print "Shutting down."
-    unregister(req, cifrouter)
+    unregister(req, apikey, cifrouter, myid)
     sys.exit(0)
     
 def usage():
@@ -159,13 +195,19 @@ try:
     while True:
         msg = msg_pb2.MessageType()
         msg.ParseFromString(subscriber.recv())
-        print "Got msg: ", msg
-        writeToDb(msg)
-        
-    unregister(req, cifrouter)
+        if msg.type == msg_pb2.MessageType.SUBMISSION and len(msg.submissionRequest) > 0:
+            print "Got msg with: ", msg.submissionRequest[0].baseObjectType
+            writeToDb(msg)
+        else:
+            print "Wrong or empty message recvd on subscriber port. Expected submission ("  +
+                str(msg_pb2.MessageType.SUBMISSION) + ") got " +
+                str(msg.type) + " number of parts (should be > 0) " +
+                str(len(msg.submissionRequest)) 
+                 
+    unregister(req, apikey, cifrouter, myid)
     
 except KeyboardInterrupt:
-    ctrlc(req, cifrouter)
+    ctrlc(req, apikey, cifrouter, myid)
 except IOError as e:
     print "I/O error({0}): {1}".format(e.errno, e.strerror)
 except KeyError as e:
