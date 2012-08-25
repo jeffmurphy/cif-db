@@ -19,6 +19,12 @@
 
 
 exit 0
+
+# firsttime
+sudo -u hdfs hdfs namenode -format
+sudo -u hdfs hdfs dfs -mkdir /hbase
+sudo -u hdfs hdfs dfs -chown hbase /hbase
+
 # if you are using apache tarballs
 
    $HOME/src/hbase-0.92.1/bin/hbase-daemon.sh stop thrift
@@ -29,3 +35,4 @@ exit 0
    $HOME/src/hadoop-1.0.3/bin/hadoop fsck /
    $HOME/src/hbase-0.92.1/bin/start-hbase.sh 
    $HOME/src/hbase-0.92.1/bin/hbase-daemon.sh start thrift
+

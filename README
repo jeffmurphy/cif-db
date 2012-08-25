@@ -1,3 +1,13 @@
 CIF-DB
 
 https://github.com/collectiveintel/cif-db
+
+Currently, for non-Java access to HBase, you need to go thru a Thrift layer. This adds latency.
+Also https://issues.apache.org/jira/browse/HBASE-4586
+And [jira] [HBASE-5295] Improve the Thrift API to switch on/off writing to wal for Mutations".
+
+So C, C++, Python access to HBase are slow. 
+
+So, cif-db will be in Java
+
+

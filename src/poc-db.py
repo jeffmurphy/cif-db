@@ -140,10 +140,10 @@ def HBConnection(host):
     c = happybase.Connection(host)
     t = c.tables()
     print "found tables: ", t
-    if not "cifidl" in t:
-        print "missing cifidl table"
-    if not "cifobjs" in t:
-        print "missing cifobjs table"
+    if not "cif_idl" in t:
+        print "missing cif_idl table"
+    if not "cif_objs" in t:
+        print "missing cif_objs table"
         
 def writeToDb(msg):
     print "Write message to db"
@@ -199,9 +199,9 @@ try:
             print "Got msg with: ", msg.submissionRequest[0].baseObjectType
             writeToDb(msg)
         else:
-            print "Wrong or empty message recvd on subscriber port. Expected submission ("  +
-                str(msg_pb2.MessageType.SUBMISSION) + ") got " +
-                str(msg.type) + " number of parts (should be > 0) " +
+            print "Wrong or empty message recvd on subscriber port. Expected submission (" + \
+                str(msg_pb2.MessageType.SUBMISSION) + ") got " +                             \
+                str(msg.type) + " number of parts (should be > 0) " +                        \
                 str(len(msg.submissionRequest)) 
                  
     unregister(req, apikey, cifrouter, myid)
