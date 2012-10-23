@@ -6,8 +6,10 @@ Currently, for non-Java access to HBase, you need to go thru a Thrift layer. Thi
 Also https://issues.apache.org/jira/browse/HBASE-4586
 And [jira] [HBASE-5295] Improve the Thrift API to switch on/off writing to wal for Mutations".
 
+Misc, http://hbase.apache.org/book/perf.writing.html#perf.hbase.client.putwal
+Misc, http://hstack.org/hbase-performance-testing/
+
 So C, C++, Python access to HBase are slow. 
 
-So, cif-db will be in Java
-
+So, cif-db will be likely be in Java
 

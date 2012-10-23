@@ -5,33 +5,48 @@
 #     occasionally the IDL is expected to change, we want to
 #     be able to parse old messages. for posterity, the specific
 #     message format will be stored here. If a message is stored
-#     in 'cifobjs' of type "CIF.msg.MessageType" with a version of
+#     in 'cif_objs' of type "CIF.msg.MessageType" with a version of
 #     20120601 and the version we have available is 20120701, we can
 #     go to this table, retrieve the old version, and parse the message.
 #
 #     rowkey $version-$type   (eg "20120601-CIF.msg.MessageType")
-#     cf:idl-$idltype         (eg "idl-pb2" = [textual obj definition])
+#     cf:$idltype             (eg "pb2" = [textual obj definition])
 #
 #     that way, given the version and object type we are looking for, 
-#     we can directly extra the IDL in a single lookup.
+#     we can directly extract the IDL in a single lookup.
 disable 'cif_idl'
 drop 'cif_idl'
 create 'cif_idl', {NAME=>'cf', COMPRESSION=>'SNAPPY'}
 
 # cif_objs purpose
+#     see http://opentsdb.net/schema.html
 #     this table will store the raw CIF.msg.MessageType objects that
 #     cif_db receives. the idea is to store the raw protocol buffers
 #     and then allow other clients to retrieve them, reinstantiate them
-#     and operate on them. 
+#     and operate on them. Hbase isn't good for storing time series data
+#     (Hbase Definitive Guide pg 363 "Time Series Data")
 #
-#     additionally, although it's redundant, we will 
+#     we need to spread the writes out across all of the region servers
+#     so we're selecting the 'salted' approach, and the timestamps
+#     will be prefixed with a random number corresponding to one of 
+#     the region servers. when reading back, N threads will need to be
+#     spawn to read the data and coalesce it back into a single data
+#     set. see the discussion of mozilla socorro, pg 364 in the HBase book 
 #
-#     rowkey $timestamp-$hash   (eg "8557483858-1efd748384ab")
-#     cf:$idltype               (eg cf:PB=object iow "PB" or "Thrift")
-#     cf:$index-$submsgtype     (eg cf:0-RFC5070-IODEF-v1=object)
+#     $salt is a 2 byte hex number, allowing for up to 0xFFFF regions
+#     note the rowkey is binary to keep it small
+#
+#     $timestamp is an 8 byte TAI64 stamp
+# 
+#     to avoid collisions, a hash of the message is appended to the row
+#     id
+#
+#     rowkey $salt$timestamp$hash   (eg "<2 byte salt><8 byte timestamp><16 byte md5>")
+#     cf:$submsgtype     (eg cf:RFC5070-IODEF-v1=object)
 #
 #     this allows the client to quickly grab all objects in a specific
-#     timeframe and of a protocol specific type.
+#     timeframe and of specific types.
+
 disable 'cif_objs'
 drop 'cif_objs'
 create 'cif_objs', {NAME=>'cf', COMPRESSION=>'SNAPPY'}
@@ -58,3 +73,30 @@ create 'cif_objs', {NAME=>'cf', COMPRESSION=>'SNAPPY'}
 
 #create 'ICSG-v1_7-2007', 'cf'
 #put 'ci_fobjs', '$tstamp-$hash', 'cf:a', 'value1'
+
+# API key tracking
+#
+# table merges the psql apikeys and apikeys_groups tables
+# cf 'b' is 'base' information
+# cf 'grp' is 'group' membership information
+#
+# to find the membership for a particular apikey, fetch the row corresponding to that key
+# and examine the grp:* column names
+#
+# eg
+#   get 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'grp:'
+#
+# to find all the members of a particular group, select all rows that match the
+# grp:<grpid> and look at the row keys
+#
+# eg 
+#   scan 'apikeys', {COLUMNS => ['grp:8c864306-d21a-37b1-8705-746a786719bf']}
+
+create 'apikeys', { NAME => 'b', COMPRESSION=>'SNAPPY'}, { NAME => 'grp', COMPRESSION=>'SNAPPY'} 
+put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:uuid_alias', 'bootstrap'
+put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:description', 'used during installation process, removed during installation process'
+put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:restricted_access', 'f'
+put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:write', 't'
+put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'grp:8c864306-d21a-37b1-8705-746a786719bf', '1'
+
+
