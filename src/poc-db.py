@@ -27,7 +27,7 @@ import RFC5070_IODEF_v1_pb2
 import MAEC_v2_pb2
 import cifsupport
 
-sys.path.append('../../cif-router/poc')
+sys.path.append('../../libcif/lib')
 from CIF.CtrlCommands.Clients import *
 from CIF.Foundation import Foundation
 
@@ -174,8 +174,8 @@ try:
             print "Wrong or empty message recvd on subscriber port. Expected submission or query (" + \
                 str(msg_pb2.MessageType.SUBMISSION) + " or " +                               \
                 str(msg_pb2.MessageType.QUERY) + ")  got " +                                 \
-                str(msg.type) + " number of parts (should be > 0) " +                        \
-                str(len(msg.submissionRequest)) + " / " + str(len(msg.queryRequest)) 
+                str(msg.type) + " number of parts (should be > 0) SR:" +                     \
+                str(len(msg.submissionRequest)) + " / QR:" + str(len(msg.queryRequest)) 
                  
     cf.unregister()
     
