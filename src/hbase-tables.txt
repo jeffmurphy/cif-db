@@ -106,5 +106,12 @@ put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'grp:8c864306-d21a-37b1-8
 put 'apikeys', 'cif-db', 'b:key', 'a8fd97c3-9f8b-477b-b45b-ba06719a0088'
 put 'apikeys', 'a8fd97c3-9f8b-477b-b45b-ba06719a0088', 'b:uuid_alias', 'cif-db'
 
+put 'apikeys', 'cif-smrt', 'b:key', 'd1f2bcd1-b809-46b1-a845-782e997a7340'
+put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:uuid_alias', 'cif-smrt'
+put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:description', 'feed consumer, publisher'
+put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:restricted_access', 'f'
+put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:write', 't'
+put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:revoked', 'f'
+put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:expires', 'never'
 
 

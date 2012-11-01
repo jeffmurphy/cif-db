@@ -102,11 +102,20 @@ def writeToDb(cif_objs, cif_idl, sr):
         print "\tput: rowid:" + rowid.encode('hex') + " " + colspec + " "
     except struct.error, err:
         print "Failed to pack rowid: ", err
-    
-    
 
+def controlMessageHandler(msg):
+    print "controlMessageHandler: Got a control message: ", msg
+    if msg.type == control_pb2.ControlType.COMMAND:
+        if msg.command == control_pb2.ControlType.PING:
+                c = Clients.makecontrolmsg(msg.dst, msg.src, msg.apikey)
+                c.status = control_pb2.ControlType.SUCCESS
+                c.type = control_pb2.ControlType.REPLY
+                c.command = msg.command
+                c.seq = msg.seq
+                cf.sendmsg(c, None)
+    
 try:
-    opts, args = getopt.getopt(sys.argv[1:], 'c:r:m:h')
+    opts, args = getopt.getopt(sys.argv[1:], 'c:r:m:D:h')
 except getopt.GetoptError, err:
     print str(err)
     usage()
@@ -116,6 +125,7 @@ controlport = "5656"
 cifrouter = "sdev.nickelsoft.com:5555"
 myid = "cif-db"
 apikey = "a8fd97c3-9f8b-477b-b45b-ba06719a0088"
+debug = 0
 
 for o, a in opts:
     if o == "-c":
@@ -127,6 +137,8 @@ for o, a in opts:
     elif o == "-h":
         usage()
         sys.exit(2)
+    elif o == "-D":
+        debug = a
 
 myip = socket.gethostbyname(socket.gethostname()) # has caveats
 
@@ -150,9 +162,12 @@ try:
                      })
 
 
+    cf.setdebug(debug)
+    cf.setdefaultcallback(controlMessageHandler)
     
     print "Register with " + cifrouter + " (req->rep)"
     req = cf.ctrlsocket()
+
     # apikey, req, myip, myid, cifrouter
     (routerport, routerpubport) = cf.register()
 
