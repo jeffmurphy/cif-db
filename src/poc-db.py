@@ -30,6 +30,7 @@ import cifsupport
 sys.path.append('../../libcif/lib')
 from CIF.CtrlCommands.Clients import *
 from CIF.Foundation import Foundation
+from DB.APIKeys import *
 
 print "cif-db proof of concept"
 
@@ -113,8 +114,8 @@ except getopt.GetoptError, err:
 
 controlport = "5656"
 cifrouter = "sdev.nickelsoft.com:5555"
-myid = "poc-db"
-apikey = "1234567890abcdef"
+myid = "cif-db"
+apikey = "a8fd97c3-9f8b-477b-b45b-ba06719a0088"
 
 for o, a in opts:
     if o == "-c":
@@ -130,21 +131,26 @@ for o, a in opts:
 myip = socket.gethostbyname(socket.gethostname()) # has caveats
 
 global cf
-cf = Foundation({'apikey' : apikey,
-                 'myip'   : myip,
-                 'cifrouter' : cifrouter,
-                 'controlport' : controlport,
-                 'myid' : myid,
-                 'routerid' : "cif-router"
-                 })
-
 
 try:
     print "Connect to HBase"
     connection = HBConnection('localhost')
     cif_objs = connection.table('cif_objs').batch(batch_size=5) # set very low for development, set to 1000+ for test/qa/prod
     cif_idl = connection.table('cif_idl')
+    apikeys = APIKeys(connection, True)
+    
+    apikey = apikeys.get_by_alias(myid)
+        
+    cf = Foundation({'apikey' : apikey,
+                     'myip'   : myip,
+                     'cifrouter' : cifrouter,
+                     'controlport' : controlport,
+                     'myid' : myid,
+                     'routerid' : "cif-router"
+                     })
 
+
+    
     print "Register with " + cifrouter + " (req->rep)"
     req = cf.ctrlsocket()
     # apikey, req, myip, myid, cifrouter
@@ -158,25 +164,28 @@ try:
         msg = msg_pb2.MessageType()
         msg.ParseFromString(subscriber.recv())
         
-        if msg.type == msg_pb2.MessageType.SUBMISSION and len(msg.submissionRequest) > 0:
-            print "Got a SUBMISSION. Saving."
-            for i in range(0, len(msg.submissionRequest)):
-                writeToDb(cif_objs, cif_idl, msg.submissionRequest[i])
-        
-        elif msg.type == msg_pb2.MessageType.QUERY and len(msg.queryRequest) > 0:
-            print "Got a QUERY. Processing."
-            for i in range(0, len(msg.submissionRequest)):
-                qreply = readFromDb(msg.queryRequest[0])
-                msg.reply.append(qreply)
-            print "Gathered replies from DB. Sending back to requester. TODO"
-        
+        if apikeys.is_valid(msg.apikey):
+            if msg.type == msg_pb2.MessageType.SUBMISSION and len(msg.submissionRequest) > 0:
+                print "Got a SUBMISSION. Saving."
+                for i in range(0, len(msg.submissionRequest)):
+                    writeToDb(cif_objs, cif_idl, msg.submissionRequest[i])
+            
+            elif msg.type == msg_pb2.MessageType.QUERY and len(msg.queryRequest) > 0:
+                print "Got a QUERY. Processing."
+                for i in range(0, len(msg.submissionRequest)):
+                    qreply = readFromDb(msg.queryRequest[0])
+                    msg.reply.append(qreply)
+                print "Gathered replies from DB. Sending back to requester. TODO"
+            
+            else:
+                print "Wrong or empty message recvd on subscriber port. Expected submission or query (" + \
+                    str(msg_pb2.MessageType.SUBMISSION) + " or " +                               \
+                    str(msg_pb2.MessageType.QUERY) + ")  got " +                                 \
+                    str(msg.type) + " number of parts (should be > 0) SR:" +                     \
+                    str(len(msg.submissionRequest)) + " / QR:" + str(len(msg.queryRequest)) 
         else:
-            print "Wrong or empty message recvd on subscriber port. Expected submission or query (" + \
-                str(msg_pb2.MessageType.SUBMISSION) + " or " +                               \
-                str(msg_pb2.MessageType.QUERY) + ")  got " +                                 \
-                str(msg.type) + " number of parts (should be > 0) SR:" +                     \
-                str(len(msg.submissionRequest)) + " / QR:" + str(len(msg.queryRequest)) 
-                 
+            print "message has an invalid apikey"
+            
     cf.unregister()
     
 except KeyboardInterrupt:
