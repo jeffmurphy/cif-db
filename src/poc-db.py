@@ -29,6 +29,8 @@ import cifsupport
 
 sys.path.append('../../libcif/lib')
 from CIF.CtrlCommands.Clients import *
+from CIF.CtrlCommands.Ping import *
+
 from CIF.Foundation import Foundation
 from DB.APIKeys import *
 
@@ -104,16 +106,13 @@ def writeToDb(cif_objs, cif_idl, sr):
         print "Failed to pack rowid: ", err
 
 def controlMessageHandler(msg):
-    print "controlMessageHandler: Got a control message: ", msg
+    if debug > 0:
+        print "controlMessageHandler: Got a control message: ", msg
     if msg.type == control_pb2.ControlType.COMMAND:
         if msg.command == control_pb2.ControlType.PING:
-                c = Clients.makecontrolmsg(msg.dst, msg.src, msg.apikey)
-                c.status = control_pb2.ControlType.SUCCESS
-                c.type = control_pb2.ControlType.REPLY
-                c.command = msg.command
-                c.seq = msg.seq
-                cf.sendmsg(c, None)
-    
+            c = Ping.makereply(msg)
+            cf.sendmsg(c, None)
+            
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'c:r:m:D:h')
 except getopt.GetoptError, err:
