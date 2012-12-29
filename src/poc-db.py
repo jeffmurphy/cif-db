@@ -105,13 +105,57 @@ def writeToDb(cif_objs, cif_idl, sr):
     except struct.error, err:
         print "Failed to pack rowid: ", err
 
+def apikey_row_to_akr(row):
+        akr = control_pb2.APIKeyResponse()
+        akr.alias = row['alias']
+        akr.revoked = row['revoked']
+        akr.expires = row['expires']
+        akr.restrictedAccess = row['restricted_access']
+        akr.writeAccess = row['write']
+        akr.description = row['description']
+        return akr
+                
 def controlMessageHandler(msg):
     if debug > 0:
         print "controlMessageHandler: Got a control message: ", msg
+        
     if msg.type == control_pb2.ControlType.COMMAND:
         if msg.command == control_pb2.ControlType.PING:
             c = Ping.makereply(msg)
             cf.sendmsg(c, None)
+        elif msg.command == control_pb2.ControlType.APIKEY_GET:
+            print "controlMessageHandler: APIKEY_GET ", msg.apiKeyRequest.apikey
+            k = apikeys.get_by_key(msg.apiKeyRequest.apikey)
+            msg.type = control_pb2.ControlType.REPLY
+            if k == None:
+                print "Key lookup failed."
+                msg.status = control_pb2.ControlType.FAILED
+            else:
+                print "Key lookup succeeded."
+                msg.status = control_pb2.ControlType.SUCCESS
+                akr = apikey_row_to_akr(k)
+                akr.apikey = msg.apiKeyRequest.apikey
+
+                msg.apiKeyResponseList.extend([akr])
+            tmp = msg.dst
+            msg.dst = msg.src
+            msg.src = tmp
+            print "controlMessageHandler: APIKEY_GET sending reply.."
+            cf.sendmsg(msg, None)
+        elif msg.command == control_pb2.ControlType.APIKEY_LIST:
+            print "controlMessageHandler: APIKEY_LIST ", msg.apiKeyRequest.apikey
+            ks = apikeys.list_by_key(msg.apiKeyRequest.apikey)
+            akr_list = []
+            for kkey in ks:
+                kval = ks[kkey]
+                akr = apikey_row_to_akr(kval)
+                akr.apikey = kkey
+                akr_list.append(akr)
+            msg.apiKeyResponseList.extend(akr_list)
+            tmp = msg.dst
+            msg.dst = msg.src
+            msg.src = tmp
+            cf.sendmsg(msg, None)
             
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'c:r:m:D:h')
@@ -148,10 +192,17 @@ try:
     connection = HBConnection('localhost')
     cif_objs = connection.table('cif_objs').batch(batch_size=5) # set very low for development, set to 1000+ for test/qa/prod
     cif_idl = connection.table('cif_idl')
+    global apikeys
+    
+    print "Initializing APIKeys object"
     apikeys = APIKeys(connection, True)
     
+    print "Resolving our APIKey: " + myid
+    
     apikey = apikeys.get_by_alias(myid)
-        
+    
+    print "Initializing foundation"
+    
     cf = Foundation({'apikey' : apikey,
                      'myip'   : myip,
                      'cifrouter' : cifrouter,
@@ -160,7 +211,8 @@ try:
                      'routerid' : "cif-router"
                      })
 
-
+    print "Configuring foundation"
+    
     cf.setdebug(debug)
     cf.setdefaultcallback(controlMessageHandler)
     
