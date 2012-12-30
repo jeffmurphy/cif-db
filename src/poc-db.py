@@ -165,7 +165,6 @@ def controlMessageHandler(msg):
                 kval = ks[kkey]
                 akr = apikey_row_to_akr(kval)
                 akr.apikey = kkey
-                print akr
                 akr_list.append(akr)
             msg.apiKeyResponseList.extend(akr_list)
             tmp = msg.dst
