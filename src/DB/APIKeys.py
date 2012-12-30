@@ -120,7 +120,7 @@ class APIKeys(object):
     def row_to_rv(self, row):
         """ 
         given a row from the db, translate its values into something standardized we can
-        stuff into a protocol buffer. eg some hbase value are typeless, we want to type them.
+        stuff into a protocol buffer. eg hbase values are typeless, we want to type (some of) them.
         """
         rv = {}
         if row != {}:
