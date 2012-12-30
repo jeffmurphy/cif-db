@@ -92,26 +92,57 @@ create 'cif_objs', {NAME=>'cf', COMPRESSION=>'SNAPPY'}
 # eg 
 #   scan 'apikeys', {COLUMNS => ['grp:8c864306-d21a-37b1-8705-746a786719bf']}
 
+disable 'apikeys'
+drop 'apikeys'
 create 'apikeys', { NAME => 'b', COMPRESSION=>'SNAPPY'}, { NAME => 'grp', COMPRESSION=>'SNAPPY'} 
+
 put 'apikeys', 'bootstrap', 'b:key', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a'
-put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:uuid_alias', 'bootstrap'
+put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:alias', 'bootstrap'
 put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:description', 'used during installation process, removed during installation process'
 put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:restricted_access', 'f'
 put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:write', 't'
+put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:default', '8c864306-d21a-37b1-8705-746a786719bf'
 put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:revoked', 'f'
 put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:expires', 'never'
 put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'b:parent', ''
-put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'grp:8c864306-d21a-37b1-8705-746a786719bf', '1'
+put 'apikeys', 'c31ebb50-18df-4f47-8ec9-3f7ff778114a', 'grp:8c864306-d21a-37b1-8705-746a786719bf', 'everyone'
 
 put 'apikeys', 'cif-db', 'b:key', 'a8fd97c3-9f8b-477b-b45b-ba06719a0088'
-put 'apikeys', 'a8fd97c3-9f8b-477b-b45b-ba06719a0088', 'b:uuid_alias', 'cif-db'
+put 'apikeys', 'a8fd97c3-9f8b-477b-b45b-ba06719a0088', 'b:alias', 'cif-db'
+put 'apikeys', 'a8fd97c3-9f8b-477b-b45b-ba06719a0088', 'b:description', 'database interface'
+put 'apikeys', 'a8fd97c3-9f8b-477b-b45b-ba06719a0088', 'b:expires', 'never'
+
 
 put 'apikeys', 'cif-smrt', 'b:key', 'd1f2bcd1-b809-46b1-a845-782e997a7340'
-put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:uuid_alias', 'cif-smrt'
+put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:alias', 'cif-smrt'
 put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:description', 'feed consumer, publisher'
 put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:restricted_access', 'f'
+put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:default', '8c864306-d21a-37b1-8705-746a786719bf'
 put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:write', 't'
 put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:revoked', 'f'
 put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'b:expires', 'never'
+put 'apikeys', 'd1f2bcd1-b809-46b1-a845-782e997a7340', 'grp:8c864306-d21a-37b1-8705-746a786719bf', 'everyone'
 
+
+
+put 'apikeys', 'cif-ui', 'b:key', 'a2fd22c2-2f2b-477b-b45b-ba06719a0088'
+put 'apikeys', 'a2fd22c2-2f2b-477b-b45b-ba06719a0088', 'b:alias', 'cif-ui'
+put 'apikeys', 'a2fd22c2-2f2b-477b-b45b-ba06719a0088', 'b:description', 'UI'
+put 'apikeys', 'a2fd22c2-2f2b-477b-b45b-ba06719a0088', 'b:restricted_access', 'f'
+put 'apikeys', 'a2fd22c2-2f2b-477b-b45b-ba06719a0088', 'b:write', 't'
+put 'apikeys', 'a2fd22c2-2f2b-477b-b45b-ba06719a0088', 'b:default', '8c864306-d21a-37b1-8705-746a786719bf'
+put 'apikeys', 'a2fd22c2-2f2b-477b-b45b-ba06719a0088', 'b:revoked', 'f'
+put 'apikeys', 'a2fd22c2-2f2b-477b-b45b-ba06719a0088', 'b:expires', 'never'
+put 'apikeys', 'a2fd22c2-2f2b-477b-b45b-ba06719a0088', 'grp:8c864306-d21a-37b1-8705-746a786719bf', 'everyone'
+
+
+put 'apikeys', 'cif-router', 'b:key', 'a1fd11c1-1f1b-477b-b45b-ba06719a0088'
+put 'apikeys', 'a1fd11c1-1f1b-477b-b45b-ba06719a0088', 'b:alias', 'cif-router'
+put 'apikeys', 'a1fd11c1-1f1b-477b-b45b-ba06719a0088', 'b:description', 'router'
+put 'apikeys', 'a1fd11c1-1f1b-477b-b45b-ba06719a0088', 'b:restricted_access', 'f'
+put 'apikeys', 'a1fd11c1-1f1b-477b-b45b-ba06719a0088', 'b:write', 't'
+put 'apikeys', 'a1fd11c1-1f1b-477b-b45b-ba06719a0088', 'b:default', '8c864306-d21a-37b1-8705-746a786719bf'
+put 'apikeys', 'a1fd11c1-1f1b-477b-b45b-ba06719a0088', 'b:revoked', 'f'
+put 'apikeys', 'a1fd11c1-1f1b-477b-b45b-ba06719a0088', 'b:expires', 'never'
+put 'apikeys', 'a1fd11c1-1f1b-477b-b45b-ba06719a0088', 'grp:8c864306-d21a-37b1-8705-746a786719bf', 'everyone'
 

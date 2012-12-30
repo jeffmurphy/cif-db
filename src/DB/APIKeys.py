@@ -159,7 +159,23 @@ class APIKeys(object):
                 rv['revoked'] = False
             else:
                 rv['revoked'] = True
+                
+            if 'b:parent' in row:
+                rv['parent'] = row['b:parent']
+            else:
+                rv['parent'] = ''
+                
+            if 'b:created' in row:
+                rv['created'] = row['b:created']
+            else:
+                rv['created'] = 0
 
+            rv['groups'] = {}
+            
+            for k in row:
+                if k.startswith("grp:"):
+                    rv['groups'][k.replace("grp:", "")] = row[k]
+                    
         return rv
             
     def list_by_key(self, apikey_pattern):

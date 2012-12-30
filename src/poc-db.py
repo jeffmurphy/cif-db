@@ -113,6 +113,18 @@ def apikey_row_to_akr(row):
         akr.restrictedAccess = row['restricted_access']
         akr.writeAccess = row['write']
         akr.description = row['description']
+        akr.created = row['created']
+        akr.parent = row['parent']
+        
+        akgl = []
+        for group in row['groups']:
+            akg = control_pb2.APIKeyGroup()
+            akg.groupname = row['groups'][group]
+            akg.groupid = group
+            akgl.append(akg)
+        
+        akr.groupsList.extend(akgl)
+        
         return akr
                 
 def controlMessageHandler(msg):
@@ -123,6 +135,7 @@ def controlMessageHandler(msg):
         if msg.command == control_pb2.ControlType.PING:
             c = Ping.makereply(msg)
             cf.sendmsg(c, None)
+            
         elif msg.command == control_pb2.ControlType.APIKEY_GET:
             print "controlMessageHandler: APIKEY_GET ", msg.apiKeyRequest.apikey
             k = apikeys.get_by_key(msg.apiKeyRequest.apikey)
@@ -142,19 +155,23 @@ def controlMessageHandler(msg):
             msg.src = tmp
             print "controlMessageHandler: APIKEY_GET sending reply.."
             cf.sendmsg(msg, None)
+            
         elif msg.command == control_pb2.ControlType.APIKEY_LIST:
             print "controlMessageHandler: APIKEY_LIST ", msg.apiKeyRequest.apikey
             ks = apikeys.list_by_key(msg.apiKeyRequest.apikey)
             akr_list = []
+            
             for kkey in ks:
                 kval = ks[kkey]
                 akr = apikey_row_to_akr(kval)
                 akr.apikey = kkey
+                print akr
                 akr_list.append(akr)
             msg.apiKeyResponseList.extend(akr_list)
             tmp = msg.dst
             msg.dst = msg.src
             msg.src = tmp
+            msg.status = control_pb2.ControlType.SUCCESS
             cf.sendmsg(msg, None)
             
 try:
