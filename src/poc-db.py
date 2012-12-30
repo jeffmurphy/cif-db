@@ -121,6 +121,10 @@ def apikey_row_to_akr(row):
             akg = control_pb2.APIKeyGroup()
             akg.groupname = row['groups'][group]
             akg.groupid = group
+            if akg.groupid == row['default']:
+                akg.default = True
+            else:
+                akg.default = False
             akgl.append(akg)
         
         akr.groupsList.extend(akgl)
@@ -167,6 +171,27 @@ def controlMessageHandler(msg):
                 akr.apikey = kkey
                 akr_list.append(akr)
             msg.apiKeyResponseList.extend(akr_list)
+            tmp = msg.dst
+            msg.dst = msg.src
+            msg.src = tmp
+            msg.type = control_pb2.ControlType.REPLY
+            msg.status = control_pb2.ControlType.SUCCESS
+            cf.sendmsg(msg, None)
+            
+        elif msg.command == control_pb2.ControlType.APIKEY_ADD:
+            print "controlMessageHandler: APIKEY_ADD ", msg.apiKeyRequest.apikey
+            print msg
+            msg.type = control_pb2.ControlType.REPLY
+            tmp = msg.dst
+            msg.dst = msg.src
+            msg.src = tmp
+            msg.status = control_pb2.ControlType.SUCCESS
+            cf.sendmsg(msg, None)
+            
+        elif msg.command == control_pb2.ControlType.APIKEY_UPDATE:
+            print "controlMessageHandler: APIKEY_UPDATE ", msg.apiKeyRequest.apikey
+            print msg
+            msg.type = control_pb2.ControlType.REPLY
             tmp = msg.dst
             msg.dst = msg.src
             msg.src = tmp

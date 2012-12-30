@@ -195,3 +195,50 @@ class APIKeys(object):
                     rv[key] = self.row_to_rv(data)
         return rv
     
+    def add_key(self, apikey_params):
+        """
+        Given a key, add it to the database. If the key exists, returns False, else True on success
+        
+        add_key({
+            apikey: ...,
+            alias: ...,
+            restrictedAccess: t|f,
+            writeAccess: t|f,
+            description: ...,
+            expires: int...,
+            revoked: t|f,
+            groupsList: {groupname, groupid, isdefault=t|f},
+            restrictionsList: {restrname, restrid},
+            parent: ...
+        })
+        """
+        return True
+    
+    def update_key(self, apikey_params):
+        """
+        Given a key, update it in the database. If the key does not exist, returns False, else True on success
+        
+        All of the fields, except the 'apikey' field, are optional. The specified fields will be merged
+        into the existing database record. To "unset" a field like parent or description, set it to ""
+        
+        add_key({
+            apikey: ...,
+            alias: ...,
+            restrictedAccess: t|f,
+            writeAccess: t|f,
+            description: ...,
+            expires: int...,
+            revoked: t|f,
+            groupsList: {groupname, groupid, isdefault=t|f},
+            restrictionsList: {restrname, restrid},
+            parent: ...
+        })
+        """
+        return True
+    
+    def remove_key(self, apikey):
+        """
+        Remove the given key from the database.
+        """
+        return True
+    
