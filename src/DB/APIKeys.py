@@ -9,7 +9,8 @@ class APIKeys(object):
         self.debug = debug
         self.table = self.dbh.table('apikeys')
         self.currow = None
-    
+        self.updateable_row_names = ['b:alias', 'b:restrictedAccess', 'b:writeAccess', 'b:description', 'b:expires', 'b:revoked', 'b:parent']
+        
     def L(self, msg):
         if self.debug != None:
             print msg
@@ -68,14 +69,14 @@ class APIKeys(object):
     
     def get_by_alias(self, alias):
         """
-        lookup where rowkey = alias, returns a string column b:key (the key itself) or None
+        lookup where rowkey = alias, returns a string column b:apikey (the key itself) or None
         use get_by_key() to retrieve full key details
         """
         R = str(__name__)
         if alias != None:
-            row = self.table.row(alias, columns = ['b:key'])
+            row = self.table.row(alias, columns = ['b:apikey'])
             if row != {}:
-                return row['b:key']
+                return row['b:apikey']
             else:
                 self.L(R + ": no key for alias " + alias)
         return None
@@ -135,25 +136,25 @@ class APIKeys(object):
             else:
                 rv['description'] = ''
                 
-            if 'b:default' in row:
-                rv['default'] = row['b:default']
+            if 'b:defaultGroup' in row:
+                rv['defaultGroup'] = row['b:defaultGroup']
             else:
-                rv['default'] = ''
+                rv['defaultGroup'] = ''
                 
             if 'b:expires' not in row or row['b:expires'] == "never":
                 rv['expires'] = 0
             else:
                 rv['expires'] = row['b:expires']
 
-            if 'b:write' not in row or row['b:write'] == 'f':
-                rv['write'] = False
+            if 'b:writeAccess' not in row or row['b:writeAccess'] == 'f':
+                rv['writeAccess'] = False
             else:
-                rv['write'] = True
+                rv['writeAccess'] = True
                 
-            if 'b:restricted_access' not in row or row['b:restricted_access'] == 'f':
-                rv['restricted_access'] = False
+            if 'b:restrictedAccess' not in row or row['b:restrictedAccess'] == 'f':
+                rv['restrictedAccess'] = False
             else:
-                rv['restricted_access'] = True
+                rv['restrictedAccess'] = True
                                     
             if 'b:revoked' not in row or row['b:revoked'] == 'f':
                 rv['revoked'] = False
@@ -172,6 +173,8 @@ class APIKeys(object):
 
             rv['groups'] = {}
             
+            rv['restrictions'] = {}
+
             for k in row:
                 if k.startswith("grp:"):
                     rv['groups'][k.replace("grp:", "")] = row[k]
@@ -212,6 +215,8 @@ class APIKeys(object):
             parent: ...
         })
         """
+        R = str(__name__)
+        self.L(R + " : " + apikey_params['apikey'])
         return True
     
     def update_key(self, apikey_params):
@@ -220,6 +225,8 @@ class APIKeys(object):
         
         All of the fields, except the 'apikey' field, are optional. The specified fields will be merged
         into the existing database record. To "unset" a field like parent or description, set it to ""
+        
+        This routine will not updated groups or restrictions.
         
         add_key({
             apikey: ...,
@@ -234,11 +241,44 @@ class APIKeys(object):
             parent: ...
         })
         """
-        return True
+        R = str(__name__)
+        self.L(R + " : " + apikey_params['apikey'])
+        kr = self.get_by_key(apikey)
+        if kr != {}:
+            try:
+                prev_alias = kr['b:alias']
+                for fn in self.updateable_row_names:
+                    if fn in apikey_params:
+                        kr[fn] = apikey_params[fn]
+                
+                self.table.put(apikey_params['apikey'], kr)
+                
+                if prev_alias != apikey_params['alias']:
+                    self.table.put(apikey_params['alias'], 'b:key', apikey_params['apikey'])
+                    self.table.delete(prev_alias)
+
+                return True
+            except e:
+                self.L(R + " : update failed for " + apikey)
+                return False
+        return False
     
     def remove_key(self, apikey):
         """
         Remove the given key from the database.
         """
-        return True
+        R = str(__name__)
+        self.L(R + " : " + apikey)
+        kr = self.get_by_key(apikey)
+        if kr != {}:
+            try:
+                if 'b:alias' in kr and kr['b:alias'] != '':
+                    # delete the alias record
+                    self.table.delete(kr['b:alias'])
+                self.table.delete(apikey)
+                return True
+            except e:
+                self.L(R + " : remove failed for " + apikey)
+                return False
+        return False
     

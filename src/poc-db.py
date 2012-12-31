@@ -110,8 +110,8 @@ def apikey_row_to_akr(row):
         akr.alias = row['alias']
         akr.revoked = row['revoked']
         akr.expires = row['expires']
-        akr.restrictedAccess = row['restricted_access']
-        akr.writeAccess = row['write']
+        akr.restrictedAccess = row['restrictedAccess']
+        akr.writeAccess = row['writeAccess']
         akr.description = row['description']
         akr.created = row['created']
         akr.parent = row['parent']
@@ -121,7 +121,7 @@ def apikey_row_to_akr(row):
             akg = control_pb2.APIKeyGroup()
             akg.groupname = row['groups'][group]
             akg.groupid = group
-            if akg.groupid == row['default']:
+            if akg.groupid == row['defaultGroup']:
                 akg.default = True
             else:
                 akg.default = False
