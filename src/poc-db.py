@@ -144,11 +144,11 @@ def controlMessageHandler(msg):
             print "controlMessageHandler: APIKEY_GET ", msg.apiKeyRequest.apikey
             k = apikeys.get_by_key(msg.apiKeyRequest.apikey)
             msg.type = control_pb2.ControlType.REPLY
-            if k == None:
-                print "Key lookup failed."
+            if k == {}:
+                print "APIKEY_GET Key lookup failed."
                 msg.status = control_pb2.ControlType.FAILED
             else:
-                print "Key lookup succeeded."
+                print "APIKEY_GET Key lookup succeeded."
                 msg.status = control_pb2.ControlType.SUCCESS
                 akr = apikey_row_to_akr(k)
                 akr.apikey = msg.apiKeyRequest.apikey
@@ -180,7 +180,6 @@ def controlMessageHandler(msg):
             
         elif msg.command == control_pb2.ControlType.APIKEY_ADD:
             print "controlMessageHandler: APIKEY_ADD ", msg.apiKeyRequest.apikey
-            print msg
             msg.type = control_pb2.ControlType.REPLY
             tmp = msg.dst
             msg.dst = msg.src
@@ -202,6 +201,24 @@ def controlMessageHandler(msg):
             msg.src = tmp
             msg.status = control_pb2.ControlType.SUCCESS
             cf.sendmsg(msg, None)
+            
+        elif msg.command == control_pb2.ControlType.APIKEY_DEL:
+            print "controlMessageHandler: APIKEY_DEL ", msg.apiKeyRequest.apikey
+            tmp = msg.dst
+            msg.dst = msg.src
+            msg.src = tmp
+
+            msg.status = control_pb2.ControlType.FAILED
+
+            if msg.apiKeyRequest.apikey == '' and msg.apiKeyRequest.alias != '':
+                if apikeys.remove_by_alias(msg.apiKeyRequest.alias) == True:
+                    msg.status == control_pb2.ControlType.SUCCESS
+            elif msg.apiKeyRequest.apikey != '':
+                if apikeys.remove_by_key(msg.apiKeyRequest.apikey) == True:
+                    msg.status = control_pb2.ControlType.SUCCESS
+                
+            cf.sendmsg(msg, None)
+            
             
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'c:r:m:D:h')

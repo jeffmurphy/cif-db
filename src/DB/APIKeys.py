@@ -281,10 +281,11 @@ class APIKeys(object):
         apikey = apikey_params.apikey
         self.L(apikey)
 
-        kr = self.get_by_key(apikey)
+        kr = self.table.row(apikey)
         if kr != {}:
             try:
                 prev_alias = kr['b:alias']
+                
                 for fn in self.updateable_row_names:
                     dbcol = "b:" + fn
                     kr[dbcol] = str(getattr(apikey_params, fn))
@@ -302,7 +303,7 @@ class APIKeys(object):
         
         return False
     
-    def remove_key(self, apikey):
+    def remove_by_key(self, apikey):
         """
         Remove the given key from the database.
         """
@@ -310,14 +311,26 @@ class APIKeys(object):
         kr = self.get_by_key(apikey)
         if kr != {}:
             try:
-                if 'b:alias' in kr and kr['b:alias'] != '':
+                if 'alias' in kr and kr['alias'] != '':
+                    print "delete the alias record"
                     # delete the alias record
-                    self.table.delete(kr['b:alias'])
+                    self.table.delete(kr['alias'])
+                else:
+                    print "no alias rec to delete ", kr
                 self.table.delete(apikey)
                 return True
             except:
                 self.L("remove failed, unknown error: " + str(sys.exc_info()[0]))
                 return False
-        return False
+        return True # if the key doesnt even exist, then we return True
     
-        
+    def remove_by_alias(self, apikey_alias):
+        """
+        Remove the given key from the database.
+        """
+        self.L(apikey_alias)
+        apikey = self.get_by_alias(apikey_alias)
+        if apikey != None:
+            return self.remove_by_key(apikey)
+        return True # if the alias doesnt exist, we return True
+    
