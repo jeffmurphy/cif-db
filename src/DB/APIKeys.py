@@ -2,6 +2,8 @@ import syslog
 from datetime import datetime
 import time
 import re
+import sys
+
 
 class APIKeys(object):
     def __init__ (self, dbh, debug):
@@ -9,13 +11,14 @@ class APIKeys(object):
         self.debug = debug
         self.table = self.dbh.table('apikeys')
         self.currow = None
-        self.updateable_row_names = ['b:alias', 'b:restrictedAccess', 'b:writeAccess', 'b:description', 'b:expires', 'b:revoked', 'b:parent']
+        self.updateable_row_names = ['alias', 'restrictedAccess', 'writeAccess', 'description', 'expires', 'revoked', 'parent']
         
     def L(self, msg):
+        caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])
         if self.debug != None:
-            print msg
+            print caller + ": " + msg
         else:
-            syslog.syslog(msg)
+            syslog.syslog(caller + ": " + msg)
     
     def totimestamp(dt, epoch=datetime(1970,1,1)):
         td = dt - epoch
@@ -28,7 +31,6 @@ class APIKeys(object):
         b:revoked 'f'
         b:expires is either 'never' or < current time
         """
-        R = str(__name__)
         
         if apikey != None:
             row = self.table.row(apikey, columns = ['b:expires', 'b:revoked'])
@@ -37,13 +39,13 @@ class APIKeys(object):
                     if row['b:expires'] == "never" or row['b:expires'] > time.time():
                         return True
                     else:
-                        self.L(R + ": " + apikey + " is expired")
+                        self.L(apikey + " is expired")
                 else:
-                    self.L(R + ": " + apikey + " is revoked")
+                    self.L(apikey + " is revoked")
             else:
-                self.L(R + ": " + apikey + " not found ")
+                self.L(apikey + " not found ")
         else:
-            self.L(R + ": no key given")
+            self.L("no key given")
         return False
     
     def is_revoked(self):
@@ -72,13 +74,12 @@ class APIKeys(object):
         lookup where rowkey = alias, returns a string column b:apikey (the key itself) or None
         use get_by_key() to retrieve full key details
         """
-        R = str(__name__)
         if alias != None:
             row = self.table.row(alias, columns = ['b:apikey'])
             if row != {}:
                 return row['b:apikey']
             else:
-                self.L(R + ": no key for alias " + alias)
+                self.L("no key for alias " + alias)
         return None
     
     def get_by_key(self, apikey):
@@ -86,8 +87,7 @@ class APIKeys(object):
         lookup where rowkey = key, return a dictionary of all columns:values
         or an empty dict
         """
-        R = str(__name__)
-        self.L(R + " : " + apikey)
+        self.L(apikey)
         rv = {}
         if apikey != None:
             row = self.table.row(apikey)
@@ -95,7 +95,7 @@ class APIKeys(object):
             if rv != {}:
                 self.currow = row
             else:
-                self.L(R + ": no key " + apikey)
+                self.L("no key " + apikey)
                 self.currow = {}
         return rv
     
@@ -105,8 +105,7 @@ class APIKeys(object):
         to find the default group, use get_by_key()
         returns an empty list on fail
         """
-        R = str(__name__)
-        self.L(R + " : " + apikey)
+        self.L(apikey)
         rv = []
         if apikey != None:
             row = self.table.row(apikey)
@@ -144,7 +143,7 @@ class APIKeys(object):
             if 'b:expires' not in row or row['b:expires'] == "never":
                 rv['expires'] = 0
             else:
-                rv['expires'] = row['b:expires']
+                rv['expires'] = int(row['b:expires'])
 
             if 'b:writeAccess' not in row or row['b:writeAccess'] == 'f':
                 rv['writeAccess'] = False
@@ -167,7 +166,7 @@ class APIKeys(object):
                 rv['parent'] = ''
                 
             if 'b:created' in row:
-                rv['created'] = row['b:created']
+                rv['created'] = int(row['b:created'])
             else:
                 rv['created'] = 0
 
@@ -188,8 +187,7 @@ class APIKeys(object):
         
         returns an empty dict on fail/no matches
         """
-        R = str(__name__)
-        self.L(R + " : " + apikey_pattern)
+        self.L(apikey_pattern)
         rv = {}
         if apikey_pattern != None:
             for key, data in self.table.scan():  #filter="FirstKeyOnlyFilter"):
@@ -215,8 +213,48 @@ class APIKeys(object):
             parent: ...
         })
         """
-        R = str(__name__)
-        self.L(R + " : " + apikey_params['apikey'])
+
+        apikey = apikey_params.apikey
+        self.L(apikey)
+        
+        kr = self.get_by_key(apikey)
+        if kr != {}:
+            return False # key already exists
+
+        ka = self.get_by_alias(apikey_params.alias)
+        if ka != None:
+            return False # alias already exists
+        
+        self.L("key/alias dont exist, looks ok to add")
+        
+        for fn in self.updateable_row_names:
+            dbcol = "b:" + fn
+            val = str(getattr(apikey_params, fn))
+            kr[dbcol] = str(getattr(apikey_params, fn))
+            
+        try:
+            self.table.put(apikey, kr)
+        except TypeError as e:
+            print e
+            self.L("add of main record failed for " + apikey)
+            return False
+        except:
+            self.table.delete(apikey)
+            self.L("add failed, unknown error: " + str(sys.exc_info()[0]))
+            return False
+            
+        try:
+            if apikey_params.alias != "":
+                self.table.put(apikey_params.alias, {'b:apikey': apikey})
+        except TypeError as e:
+            self.table.delete(apikey) # rollback
+            self.L("add of alias record failed for " + apikey + " (rolled back main)")
+            return False
+        except:
+            self.table.delete(apikey)
+            self.L("add failed, unknown error: " + str(sys.exc_info()[0]))
+            return False
+        
         return True
     
     def update_key(self, apikey_params):
@@ -226,7 +264,6 @@ class APIKeys(object):
         All of the fields, except the 'apikey' field, are optional. The specified fields will be merged
         into the existing database record. To "unset" a field like parent or description, set it to ""
         
-        This routine will not updated groups or restrictions.
         
         add_key({
             apikey: ...,
@@ -241,34 +278,35 @@ class APIKeys(object):
             parent: ...
         })
         """
-        R = str(__name__)
-        self.L(R + " : " + apikey_params['apikey'])
+        apikey = apikey_params.apikey
+        self.L(apikey)
+
         kr = self.get_by_key(apikey)
         if kr != {}:
             try:
                 prev_alias = kr['b:alias']
                 for fn in self.updateable_row_names:
-                    if fn in apikey_params:
-                        kr[fn] = apikey_params[fn]
+                    dbcol = "b:" + fn
+                    kr[dbcol] = str(getattr(apikey_params, fn))
                 
-                self.table.put(apikey_params['apikey'], kr)
+                self.table.put(apikey, kr)
                 
-                if prev_alias != apikey_params['alias']:
-                    self.table.put(apikey_params['alias'], 'b:key', apikey_params['apikey'])
+                if prev_alias != apikey_params.alias:
+                    self.table.put(apikey_params.alias, {'b:apikey': apikey})
                     self.table.delete(prev_alias)
 
                 return True
-            except e:
-                self.L(R + " : update failed for " + apikey)
+            except:
+                self.L("update failed, unknown error: " + str(sys.exc_info()[0]))
                 return False
+        
         return False
     
     def remove_key(self, apikey):
         """
         Remove the given key from the database.
         """
-        R = str(__name__)
-        self.L(R + " : " + apikey)
+        self.L(apikey)
         kr = self.get_by_key(apikey)
         if kr != {}:
             try:
@@ -277,8 +315,9 @@ class APIKeys(object):
                     self.table.delete(kr['b:alias'])
                 self.table.delete(apikey)
                 return True
-            except e:
-                self.L(R + " : remove failed for " + apikey)
+            except:
+                self.L("remove failed, unknown error: " + str(sys.exc_info()[0]))
                 return False
         return False
     
+        

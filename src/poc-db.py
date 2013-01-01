@@ -185,7 +185,12 @@ def controlMessageHandler(msg):
             tmp = msg.dst
             msg.dst = msg.src
             msg.src = tmp
-            msg.status = control_pb2.ControlType.SUCCESS
+
+            if apikeys.add_key(msg.apiKeyRequest) == True:
+                msg.status = control_pb2.ControlType.SUCCESS
+            else:
+                msg.status = control_pb2.ControlType.FAILED
+                
             cf.sendmsg(msg, None)
             
         elif msg.command == control_pb2.ControlType.APIKEY_UPDATE:
