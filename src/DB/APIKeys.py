@@ -145,17 +145,17 @@ class APIKeys(object):
             else:
                 rv['expires'] = int(row['b:expires'])
 
-            if 'b:writeAccess' not in row or row['b:writeAccess'] == 'f':
+            if 'b:writeAccess' not in row or row['b:writeAccess'] == 'False':
                 rv['writeAccess'] = False
             else:
                 rv['writeAccess'] = True
                 
-            if 'b:restrictedAccess' not in row or row['b:restrictedAccess'] == 'f':
+            if 'b:restrictedAccess' not in row or row['b:restrictedAccess'] == 'False':
                 rv['restrictedAccess'] = False
             else:
                 rv['restrictedAccess'] = True
                                     
-            if 'b:revoked' not in row or row['b:revoked'] == 'f':
+            if 'b:revoked' not in row or row['b:revoked'] == 'False':
                 rv['revoked'] = False
             else:
                 rv['revoked'] = True
@@ -183,7 +183,7 @@ class APIKeys(object):
     def list_by_key(self, apikey_pattern):
         """
         lookup where rowkey =~ apikey_pattern, return a dict of all matches 
-        will also return aliases (since they appear in the rowkey)
+        will NOT return aliases (even tho we store them in the rowkey)
         
         returns an empty dict on fail/no matches
         """
@@ -192,7 +192,7 @@ class APIKeys(object):
         if apikey_pattern != None:
             for key, data in self.table.scan():  #filter="FirstKeyOnlyFilter"):
                 match = re.search(apikey_pattern, key)
-                if match != None:
+                if match != None and 'b:apikey' not in data:
                     rv[key] = self.row_to_rv(data)
         return rv
     

@@ -133,7 +133,7 @@ def apikey_row_to_akr(row):
                 
 def controlMessageHandler(msg):
     if debug > 0:
-        print "controlMessageHandler: Got a control message: ", msg
+        print "controlMessageHandler: Got a control message: "#, msg
         
     if msg.type == control_pb2.ControlType.COMMAND:
         if msg.command == control_pb2.ControlType.PING:
@@ -176,6 +176,7 @@ def controlMessageHandler(msg):
             msg.src = tmp
             msg.type = control_pb2.ControlType.REPLY
             msg.status = control_pb2.ControlType.SUCCESS
+            print msg
             cf.sendmsg(msg, None)
             
         elif msg.command == control_pb2.ControlType.APIKEY_ADD:
