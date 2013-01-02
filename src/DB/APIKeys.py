@@ -280,22 +280,22 @@ class APIKeys(object):
         """
         apikey = apikey_params.apikey
         self.L(apikey)
-
+        
         kr = self.table.row(apikey)
         if kr != {}:
             try:
                 prev_alias = kr['b:alias']
                 
                 for fn in self.updateable_row_names:
-                    dbcol = "b:" + fn
-                    colval = str(getattr(apikey_params, fn))
-                    
-                    if colval != "":
+                    if apikey_params.HasField(fn):
+                        dbcol = "b:" + fn
+                        colval = str(getattr(apikey_params, fn))
+                        print "setting ", dbcol, " to ", colval
                         kr[dbcol] = str(getattr(apikey_params, fn))
                 
                 self.table.put(apikey, kr)
                 
-                if apikey_params.alias != "" and prev_alias != apikey_params.alias:
+                if apikey_params.HasField("alias") and apikey_params.alias != "" and prev_alias != apikey_params.alias:
                     self.table.put(apikey_params.alias, {'b:apikey': apikey})
                     self.table.delete(prev_alias)
 
