@@ -262,7 +262,7 @@ class APIKeys(object):
         Given a key, update it in the database. If the key does not exist, returns False, else True on success
         
         All of the fields, except the 'apikey' field, are optional. The specified fields will be merged
-        into the existing database record. To "unset" a field like parent or description, set it to ""
+        into the existing database record. 
         
         
         add_key({
@@ -288,11 +288,14 @@ class APIKeys(object):
                 
                 for fn in self.updateable_row_names:
                     dbcol = "b:" + fn
-                    kr[dbcol] = str(getattr(apikey_params, fn))
+                    colval = str(getattr(apikey_params, fn))
+                    
+                    if colval != "":
+                        kr[dbcol] = str(getattr(apikey_params, fn))
                 
                 self.table.put(apikey, kr)
                 
-                if prev_alias != apikey_params.alias:
+                if apikey_params.alias != "" and prev_alias != apikey_params.alias:
                     self.table.put(apikey_params.alias, {'b:apikey': apikey})
                     self.table.delete(prev_alias)
 
