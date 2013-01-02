@@ -277,6 +277,7 @@ class APIKeys(object):
             restrictionsList: {restrname, restrid},
             parent: ...
         })
+                
         """
         apikey = apikey_params.apikey
         self.L(apikey)
@@ -284,8 +285,16 @@ class APIKeys(object):
         kr = self.table.row(apikey)
         if kr != {}:
             try:
-                prev_alias = kr['b:alias']
-                
+
+                if apikey_params.HasField("alias"):
+                    prev_alias = kr['b:alias']
+                    if apikey_params.alias != "" and prev_alias != apikey_params.alias: # if you want to change the alias
+                        ka = self.get_by_alias(alias)
+                        if ka != None:
+                            return False # alias already taken
+                    self.table.put(apikey_params.alias, {'b:apikey': apikey})
+                    self.table.delete(prev_alias)
+                    
                 for fn in self.updateable_row_names:
                     if apikey_params.HasField(fn):
                         dbcol = "b:" + fn
@@ -294,10 +303,6 @@ class APIKeys(object):
                 
                 self.table.put(apikey, kr)
                 
-                if apikey_params.HasField("alias") and apikey_params.alias != "" and prev_alias != apikey_params.alias:
-                    self.table.put(apikey_params.alias, {'b:apikey': apikey})
-                    self.table.delete(prev_alias)
-
                 return True
             except:
                 self.L("update failed, unknown error: " + str(sys.exc_info()[0]))
