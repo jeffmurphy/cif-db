@@ -290,7 +290,7 @@ class APIKeys(object):
                     if apikey_params.HasField(fn):
                         dbcol = "b:" + fn
                         colval = str(getattr(apikey_params, fn))
-                        kr[dbcol] = str(getattr(apikey_params, fn))
+                        kr[dbcol] = colval
                 
                 self.table.put(apikey, kr)
                 
