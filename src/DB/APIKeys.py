@@ -219,11 +219,11 @@ class APIKeys(object):
         
         kr = self.get_by_key(apikey)
         if kr != {}:
-            return False # key already exists
+            raise Exception("Key already exists")
 
         ka = self.get_by_alias(apikey_params.alias)
         if ka != None:
-            return False # alias already exists
+            raise Exception("Alias already exists")
         
         self.L("key/alias dont exist, looks ok to add")
         
@@ -237,11 +237,11 @@ class APIKeys(object):
         except TypeError as e:
             print e
             self.L("add of main record failed for " + apikey)
-            return False
+            raise Exception("Failed to add key to database")
         except:
             self.table.delete(apikey)
             self.L("add failed, unknown error: " + str(sys.exc_info()[0]))
-            return False
+            raise Exception("Failed to add key to database: " +  str(sys.exc_info()[0]))
             
         try:
             if apikey_params.alias != "":
@@ -249,17 +249,15 @@ class APIKeys(object):
         except TypeError as e:
             self.table.delete(apikey) # rollback
             self.L("add of alias record failed for " + apikey + " (rolled back main)")
-            return False
+            raise Exception("Add of alias to database failed")
         except:
             self.table.delete(apikey)
             self.L("add failed, unknown error: " + str(sys.exc_info()[0]))
-            return False
-        
-        return True
+            raise Exception("Add of alias failed: " + str(sys.exc_info()[0]))
     
     def update_key(self, apikey_params):
         """
-        Given a key, update it in the database. If the key does not exist, returns False, else True on success
+        Given a key, update it in the database. 
         
         All of the fields, except the 'apikey' field, are optional. The specified fields will be merged
         into the existing database record. 
@@ -273,8 +271,8 @@ class APIKeys(object):
             description: ...,
             expires: int...,
             revoked: t|f,
-            groupsList: {groupname, groupid, isdefault=t|f},
-            restrictionsList: {restrname, restrid},
+            groupsList: [ {groupname: name, groupid: id, default: t|f} ],
+            restrictionsList: [ {restrname: name, restrid: id} ],
             parent: ...
         })
                 
@@ -291,9 +289,9 @@ class APIKeys(object):
                     if apikey_params.alias != "" and prev_alias != apikey_params.alias: # if you want to change the alias
                         ka = self.get_by_alias(alias)
                         if ka != None:
-                            return False # alias already taken
-                    self.table.put(apikey_params.alias, {'b:apikey': apikey})
-                    self.table.delete(prev_alias)
+                            raise Exception("Alias already taken")
+                        self.table.put(apikey_params.alias, {'b:apikey': apikey})
+                        self.table.delete(prev_alias)
                     
                 for fn in self.updateable_row_names:
                     if apikey_params.HasField(fn):
@@ -303,12 +301,73 @@ class APIKeys(object):
                 
                 self.table.put(apikey, kr)
                 
-                return True
+                if apikey_params.HasField('groupsList'):
+                    self.update_groups(apikey, apikey_params.groupsList)
+                
+                if apikey_params.HasField('restrictionsList'):
+                    self.update_restrictions(apikey, apikey_params.restrictionsList)
+                
             except:
                 self.L("update failed, unknown error: " + str(sys.exc_info()[0]))
-                return False
+                raise Exception("Unknown error: " + str(sys.exc_info()[0]))
         
-        return False
+        raise Exception("Key doesn't exist: " + apikey)
+    
+    def update_groups(self, apikey, groupsList):
+        """
+        Given a groups list like this: groupsList = [ {groupname: name, groupid: id, default: t|f} ]
+        add the group name/id to the specified apikey. If the groupid is empty (or unspecified) but 
+        the name is given, we will remove the group from the given apikey.
+        
+        The group must exist in the groups table before we take any action, otherwise we return 
+        false.
+        
+        The groupid that the client passes is ignored, and instead we lookup the groupid in the
+        groups table using the groupname they give us. 
+        """
+        
+        if apikey != None and 'groupname' in groupsList:
+            groupid = self.get_group_by_name(groupsList['groupname'])
+            if groupid != None:
+                akr = self.table.get('apikeys', apikey)
+                if akr != {}: 
+                    if 'groupid' in groupsList:
+                        self.table.put('apikeys', apikey, 'grp:' + groupid, groupsList['groupname'])
+                    else:
+                        self.table.delete('apikeys', apikey, 'grp:' + groupid)
+                else:
+                    raise Exception("Key doesn't exist")
+    
+    def update_restrictions(self, apikey, restrictionsList):
+        return True
+    
+    def create_group(self, groupname, groupid):
+        if groupname != None and groupid != None:
+            self.table.put('groups', groupname, 'b:uuid', groupid)
+            self.table.put('groups', groupid, 'b:name', groupname)
+
+        raise Exception("Invalid parameters")
+    
+    def remove_group(self, groupname, groupid):
+        if groupname != None and groupid != None:
+            self.table.delete('groups', groupname)
+            self.table.delete('groups', groupid)
+            
+        raise Exception("Invalid parameters")
+    
+    def get_group_by_name(self, groupName):
+        if groupName != None:
+            row = self.table.get('groups', groupName, 'b:uuid')
+            if row != {} and 'b:uuid' in row:
+                return row['b:uuid']
+        return None
+    
+    def get_group_by_id(self, groupid):
+        if groupid != None:
+            row = self.table.get('groups', groupid, 'b:name')
+            if row != {} and 'b:name' in row:
+                return row['b:name']
+        return None
     
     def remove_by_key(self, apikey):
         """
@@ -325,11 +384,9 @@ class APIKeys(object):
                 else:
                     print "no alias rec to delete ", kr
                 self.table.delete(apikey)
-                return True
             except:
                 self.L("remove failed, unknown error: " + str(sys.exc_info()[0]))
-                return False
-        return True # if the key doesnt even exist, then we return True
+                raise Exception("Remove failed: " + str(sys.exc_info()[0]))
     
     def remove_by_alias(self, apikey_alias):
         """
@@ -338,6 +395,5 @@ class APIKeys(object):
         self.L(apikey_alias)
         apikey = self.get_by_alias(apikey_alias)
         if apikey != None:
-            return self.remove_by_key(apikey)
-        return True # if the alias doesnt exist, we return True
+            self.remove_by_key(apikey)
     

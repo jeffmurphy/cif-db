@@ -186,9 +186,12 @@ def controlMessageHandler(msg):
             msg.dst = msg.src
             msg.src = tmp
 
-            if apikeys.add_key(msg.apiKeyRequest) == True:
+            try:
+                apikeys.add_key(msg.apiKeyRequest)
                 msg.status = control_pb2.ControlType.SUCCESS
-            else:
+            except Exception as e:
+                print "FAILED with " + str(e)
+                msg.statusMsg = str(e)
                 msg.status = control_pb2.ControlType.FAILED
                 
             cf.sendmsg(msg, None)
@@ -199,10 +202,13 @@ def controlMessageHandler(msg):
             tmp = msg.dst
             msg.dst = msg.src
             msg.src = tmp
-            if apikeys.update_key(msg.apiKeyRequest) == True:
+            try:
+                apikeys.update_key(msg.apiKeyRequest)
                 msg.status = control_pb2.ControlType.SUCCESS
-            else:
+            except Exception as e:
                 msg.status = control_pb2.ControlType.FAILED
+                print "FAILED with " + str(e)
+                msg.statusMsg = str(e)
             cf.sendmsg(msg, None)
             
         elif msg.command == control_pb2.ControlType.APIKEY_DEL:
@@ -213,12 +219,14 @@ def controlMessageHandler(msg):
 
             msg.status = control_pb2.ControlType.FAILED
 
-            if msg.apiKeyRequest.apikey == '' and msg.apiKeyRequest.alias != '':
-                if apikeys.remove_by_alias(msg.apiKeyRequest.alias) == True:
-                    msg.status == control_pb2.ControlType.SUCCESS
-            elif msg.apiKeyRequest.apikey != '':
-                if apikeys.remove_by_key(msg.apiKeyRequest.apikey) == True:
-                    msg.status = control_pb2.ControlType.SUCCESS
+            try:
+                if msg.apiKeyRequest.apikey == '' and msg.apiKeyRequest.alias != '':
+                    apikeys.remove_by_alias(msg.apiKeyRequest.alias)
+                else:
+                    apikeys.remove_by_key(msg.apiKeyRequest.apikey)
+                msg.status = control_pb2.ControlType.SUCCESS
+            except Exception as e:
+                msg.statusMsg = str(e)
                 
             cf.sendmsg(msg, None)
             
