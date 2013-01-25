@@ -35,7 +35,7 @@ class APIKeys(object):
         if apikey != None:
             row = self.table.row(apikey, columns = ['b:expires', 'b:revoked'])
             if row != {}:
-                if row['b:revoked'] == None or row['b:revoked'] == "f":
+                if row['b:revoked'] == None or row['b:revoked'] == "False":
                     if row['b:expires'] == "never" or row['b:expires'] > time.time():
                         return True
                     else:
@@ -51,7 +51,7 @@ class APIKeys(object):
     def is_revoked(self):
         if self.exists() == True:
             if 'b:revoked' in self.currow:
-                if self.currow['b:revoked'] == 'f':
+                if self.currow['b:revoked'] == 'False':
                     return False
         return False
 
