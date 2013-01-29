@@ -55,7 +55,7 @@ Attach to cif-router ROUTER:
     
 def usage():
     print "\
-    # poc-subscriber [-c 5656] [-r cif-router:5555] [-m name]\n\
+    # poc-db [-c 5656] [-r cif-router:5555] [-m name]\n\
     #     -c  control port (REQ - for inbound messages)\n\
     #     -r  cif-router hostname:port\n\
     #     -m  my name\n"
@@ -88,7 +88,7 @@ def saveIDL(cif_idl, sr):
     bot = re.sub('_', '-', sr.baseObjectType)
     fn = cifsupport.installBase() + "/" + bot + ".proto"
     print "IDL should be: " + fn
-    
+
 def writeToDb(cif_objs, cif_idl, sr):
     print "\tWrite message(s) to db: "  + str(sr.baseObjectType)
     ts = int(time.time()) # ignore fractional seconds
@@ -99,7 +99,7 @@ def writeToDb(cif_objs, cif_idl, sr):
     salt = 0xFF00
     try:
         saveIDL(cif_idl, sr)
-        rowid = struct.pack("II16s", salt, ts, hash)
+        rowid = struct.pack(">HI16s", salt, ts, hash)
         cif_objs.put(rowid, {colspec: sr.data})
         print "\tput: rowid:" + rowid.encode('hex') + " " + colspec + " "
     except struct.error, err:
