@@ -52,27 +52,39 @@ drop 'cif_objs'
 create 'cif_objs', {NAME=>'cf', COMPRESSION=>'SNAPPY'}
 
 
-# we will store the complete CIF.msg object keyed as
-# 'timestamp-hash' 
+
+
+disable 'infrastructure_botnet'
+drop 'infrastructure_botnet'
+create 'infrastructure_botnet', {NAME => 'b', COMPRESSION => 'SNAPPY'}
+
+
+# b:uuid, b:guid, b:address, b:hash, b:confidence, b:reporttime
+# questions:
+#   1. search by address, above specific confidence
+#   2. search by netblock
 #
-# eg
+# rowid: $salt$address$hash
 #
-# put 'cif', '8589938385-48af43de', 'gen:object', '[serialized protobuf]'
+# this lets us search by netblock. the b:address column is moved into the rowid
+# we also rightpad out the b:address field to 16 bytes, so we can handle ipv6 
+# addresses transparently.
 #
-# putting the ts first groups messages into regions by time (generally)
-# 
+# b:$confidence = ?
+# b:$group = $confidence
+
+
+# state information
+# rowid = exploder_checkpoint 
+#    col = b:ts
+
+disable 'registry'
+drop 'registry'
+create 'registry', { NAME => 'b', COMPRESSION => 'SNAPPY' }
 
 
 
-# We'll precreate tables for 'canned' message types.
-# Each table is named after the specific message type
-# and we will explode the message fields into columns
-# the exploding will be done by a background process
-# so as to not slow down the main thread 
 
-
-#create 'ICSG-v1_7-2007', 'cf'
-#put 'ci_fobjs', '$tstamp-$hash', 'cf:a', 'value1'
 
 # API key tracking
 #

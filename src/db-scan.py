@@ -95,6 +95,8 @@ tbl = connection.table('cif_objs')
 
 print "Dumping cif_objs"
 
+count = 0
+
 for key, data in tbl.scan(row_start=srowid, row_stop=erowid):
     psalt, pts = struct.unpack(">HI", key[:6])
     print time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(pts))
@@ -104,7 +106,16 @@ for key, data in tbl.scan(row_start=srowid, row_stop=erowid):
     iodef = RFC5070_IODEF_v1_pb2.IODEF_DocumentType()
     iodef.ParseFromString(obj_data)
     print iodef
-    print
+    ii = iodef.Incident
+    print ii[0].IncidentID.name
+    count = count + 1
+    
+    # Incident.Assessment.Impact.Content = botnet
+    # Incident.Assessment.Confidence.content = 65.0
+    # Incident.Assessment.Impact.severity = severity_type_high
+    
+    
+print count, " rows total."
 
 
 

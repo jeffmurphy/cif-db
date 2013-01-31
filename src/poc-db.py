@@ -33,6 +33,7 @@ from CIF.CtrlCommands.Ping import *
 
 from CIF.Foundation import Foundation
 from DB.APIKeys import *
+from DB.Exploder import *
 
 print "cif-db proof of concept"
 
@@ -260,6 +261,7 @@ for o, a in opts:
 myip = socket.gethostbyname(socket.gethostname()) # has caveats
 
 global cf
+global exploder
 
 try:
     print "Connect to HBase"
@@ -267,6 +269,10 @@ try:
     cif_objs = connection.table('cif_objs').batch(batch_size=5) # set very low for development, set to 1000+ for test/qa/prod
     cif_idl = connection.table('cif_idl')
     global apikeys
+    
+    print "Initializing Exploder"
+    exploder = Exploder(connection, False)
+    exploder.do_some_work()
     
     print "Initializing APIKeys object"
     apikeys = APIKeys(connection, True)
