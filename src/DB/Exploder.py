@@ -5,6 +5,7 @@ import re
 import sys
 import threading
 import happybase
+import struct
 
 class Exploder(object):
     def __init__ (self, connection, debug):
@@ -40,7 +41,7 @@ class Exploder(object):
     
     def setcheckpoint(self, ts):
         t = self.dbh.table('registry')
-        t.put('exploder_checkpoint', { 'b:ts', ts })
+        t.put('exploder_checkpoint', { 'b:ts': ts })
         
     def run(self):
         self.L("Exploder running")
@@ -50,8 +51,8 @@ class Exploder(object):
             self.kickit.acquire() # will block provided kickit is 0
             self.L("wakup")
             
-            co = connection.table('cif_objs')
-            starts = self.getcheckpoint()
+            co = self.dbh.table('cif_objs')
+            startts = self.getcheckpoint()
             endts = int(time.time())
             processed = 0
             
@@ -59,8 +60,12 @@ class Exploder(object):
             srowid = struct.pack(">HIIIII", salt, startts, 0,0,0,0)
             erowid = struct.pack(">HIIIII", salt, endts, 0,0,0,0)
 
-            for key, data in tbl.scan(row_start=srowid, row_stop=erowid):
+            for key, data in co.scan(row_start=srowid, row_stop=erowid):
                 contains = data.keys()[0]
                 obj_data = data[contains]
                 
-            self.setcheckpoint(endts+1)
+                if contains == "RFC5070_IODEF_v1_pb2":
+                    iodef = RFC5070_IODEF_v1_pb2.IODEF_DocumentType()
+                    iodef.ParseFromString(obj_data)
+                
+            #self.setcheckpoint(endts+1)

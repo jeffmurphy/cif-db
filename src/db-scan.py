@@ -99,20 +99,34 @@ count = 0
 
 for key, data in tbl.scan(row_start=srowid, row_stop=erowid):
     psalt, pts = struct.unpack(">HI", key[:6])
-    print time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(pts))
+    print "entered on: ", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(pts))
     contains = data.keys()[0]
     obj_data = data[contains]
-    print "\t", contains
+    print "contains: ", contains
     iodef = RFC5070_IODEF_v1_pb2.IODEF_DocumentType()
     iodef.ParseFromString(obj_data)
-    print iodef
-    ii = iodef.Incident
-    print ii[0].IncidentID.name
+    
+    #print iodef
+    
+    ii = iodef.Incident[0]
+    table_type = ii.Assessment[0].Impact[0].content.content
+    confidence = ii.Assessment[0].Confidence.content
+    severity = ii.Assessment[0].Impact[0].severity
+    addr_type = ii.EventData[0].Flow[0].System[0].Node.Address[0].category
+    addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
+
+    print "\ttype: ", table_type
+    print "\tconfidence: ", confidence
+    print "\tseverity: ", severity
+    print "\taddr_type: ", addr_type
+    print "\taddr: ", addr
+    
     count = count + 1
     
     # Incident.Assessment.Impact.Content = botnet
     # Incident.Assessment.Confidence.content = 65.0
     # Incident.Assessment.Impact.severity = severity_type_high
+    # EventData { Flow { System { Node { Address {
     
     
 print count, " rows total."
