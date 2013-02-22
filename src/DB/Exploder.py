@@ -7,6 +7,15 @@ import threading
 import happybase
 import struct
 
+sys.path.append('/usr/local/lib/cif-protocol/pb-python/gen-py')
+
+import msg_pb2
+import feed_pb2
+import control_pb2
+import RFC5070_IODEF_v1_pb2
+import MAEC_v2_pb2
+import cifsupport
+
 class Exploder(object):
     def __init__ (self, connection, debug):
         self.debug = debug
@@ -42,7 +51,13 @@ class Exploder(object):
     def setcheckpoint(self, ts):
         t = self.dbh.table('registry')
         t.put('exploder_checkpoint', { 'b:ts': ts })
-        
+    
+    def pack_rowkey_ipv4(self, salt, addr, hash):
+        return None
+    
+    def pack_rowkey_ipv6(self, salt, addr, hash):
+        return None
+    
     def run(self):
         self.L("Exploder running")
         
@@ -55,6 +70,8 @@ class Exploder(object):
             startts = self.getcheckpoint()
             endts = int(time.time())
             processed = 0
+
+            self.L("processing: " + str(startts) + " to " + str(endts))
             
             salt = 0xFF00
             srowid = struct.pack(">HIIIII", salt, startts, 0,0,0,0)
@@ -64,8 +81,31 @@ class Exploder(object):
                 contains = data.keys()[0]
                 obj_data = data[contains]
                 
-                if contains == "RFC5070_IODEF_v1_pb2":
+                if contains == "cf:RFC5070_IODEF_v1_pb2":
                     iodef = RFC5070_IODEF_v1_pb2.IODEF_DocumentType()
-                    iodef.ParseFromString(obj_data)
-                
+                    try:
+                        iodef.ParseFromString(obj_data)
+
+                        print iodef
+                        ii = iodef.Incident[0]
+                        table_type = ii.Assessment[0].Impact[0].content.content
+                        rowkey = None
+                        
+                        if table_type == "botnet":
+                            confidence = ii.Assessment[0].Confidence.content
+                            severity = ii.Assessment[0].Impact[0].severity
+                            addr_type = ii.EventData[0].Flow[0].System[0].Node.Address[0].category
+                            
+                            if addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_addr or addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_net:
+                                addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
+                                rowkey = self.pack_rowkey_ipv4(salt, addr, hash)
+                            
+                            elif addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_addr or addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_net:
+                                addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
+                                rowkey = self.pack_rowkey_ipv6(salt, addr, hash)
+                                
+                    except Exception as e:
+                        print "Failed to parse restored object: ", e
+
+    
             #self.setcheckpoint(endts+1)
