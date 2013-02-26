@@ -103,34 +103,54 @@ for key, data in tbl.scan(row_start=srowid, row_stop=erowid):
     contains = data.keys()[0]
     obj_data = data[contains]
     print "contains: ", contains
-    iodef = RFC5070_IODEF_v1_pb2.IODEF_DocumentType()
-    try:
-        iodef.ParseFromString(obj_data)
+    count = count + 1
+
+    if contains == "cf:RFC5070_IODEF_v1_pb2":
+        iodef = RFC5070_IODEF_v1_pb2.IODEF_DocumentType()
+
+        try:
+            iodef.ParseFromString(obj_data)
+            
+            ii = iodef.Incident[0]
+            table_type = ii.Assessment[0].Impact[0].content.content
+            confidence = ii.Assessment[0].Confidence.content
+            severity = ii.Assessment[0].Impact[0].severity
+            addr_type = ii.EventData[0].Flow[0].System[0].Node.Address[0].category
+            
+            addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
         
-        #print iodef
-        
-        ii = iodef.Incident[0]
-        table_type = ii.Assessment[0].Impact[0].content.content
-        confidence = ii.Assessment[0].Confidence.content
-        severity = ii.Assessment[0].Impact[0].severity
-        addr_type = ii.EventData[0].Flow[0].System[0].Node.Address[0].category
-        addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
-    
-        print "\ttype: ", table_type
-        print "\tconfidence: ", confidence
-        print "\tseverity: ", severity
-        print "\taddr_type: ", addr_type
-        print "\taddr: ", addr
-        
-        count = count + 1
-    except Exception as e:
-        print "Failed to restore message to stated type: ", e
-    
-    # Incident.Assessment.Impact.Content = botnet
-    # Incident.Assessment.Confidence.content = 65.0
-    # Incident.Assessment.Impact.severity = severity_type_high
-    # EventData { Flow { System { Node { Address {
-    
+            prefix = 'na'
+            asn = 'na'
+            asn_desc = 'na'
+            rir = 'na'
+            cc = 'na'
+            
+            # addr_type == 5 then AddtData will contain asn, asn_desc, cc, rir, prefix
+            if addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_addr:
+                for i in ii.EventData[0].Flow[0].System[0].AdditionalData:
+                    if i.meaning == 'prefix':
+                        prefix = i.content
+                    elif i.meaning == 'asn':
+                        asn = i.content
+                    elif i.meaning == 'asn_desc':
+                        asn_desc = i.content
+                    elif i.meaning == 'rir':
+                        rir = i.content
+                    elif i.meaning == 'cc':
+                        cc = i.content
+
+                            
+            print "\ttype: ", table_type
+            print "\tconfidence: ", confidence
+            print "\tseverity: ", severity
+            print "\taddr_type: ", addr_type
+            print "\taddr: ", addr, prefix, asn, asn_desc, rir, cc
+            
+
+            
+        except Exception as e:
+            print "Failed to restore message to stated type: ", e
+
     
 print count, " rows total."
 

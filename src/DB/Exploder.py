@@ -104,6 +104,9 @@ class Exploder(object):
                                 addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
                                 rowkey = self.pack_rowkey_ipv6(salt, addr, hash)
                                 
+                        elif table_type == "malware":
+                            print "malware"
+                                
                     except Exception as e:
                         print "Failed to parse restored object: ", e
 
