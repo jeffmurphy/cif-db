@@ -16,20 +16,24 @@ import RFC5070_IODEF_v1_pb2
 import MAEC_v2_pb2
 import cifsupport
 
+import Botnet
+from DB.Salt import Salt
+
 class Exploder(object):
     def __init__ (self, connection, debug):
         self.debug = debug
         self.dbh = connection
         t = self.dbh.tables()
-        
-        if not "infrastructure_botnet" in t:
-            raise Exception("missing infrastructure_botnet table")
 
         self.table = self.dbh.table('infrastructure_botnet')
         self.kickit = threading.Semaphore(0)
         self.proc_thread = threading.Thread(target=self.run, args=())
         self.proc_thread.start()
-
+        
+        self.botnet_handler = Botnet.Botnet(connection, debug)
+        
+        self.salt = Salt()
+        
         
     def L(self, msg):
         caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])
@@ -51,12 +55,6 @@ class Exploder(object):
     def setcheckpoint(self, ts):
         t = self.dbh.table('registry')
         t.put('exploder_checkpoint', { 'b:ts': ts })
-    
-    def pack_rowkey_ipv4(self, salt, addr, hash):
-        return None
-    
-    def pack_rowkey_ipv6(self, salt, addr, hash):
-        return None
     
     def run(self):
         self.L("Exploder running")
@@ -92,23 +90,15 @@ class Exploder(object):
                         rowkey = None
                         
                         if table_type == "botnet":
-                            confidence = ii.Assessment[0].Confidence.content
-                            severity = ii.Assessment[0].Impact[0].severity
-                            addr_type = ii.EventData[0].Flow[0].System[0].Node.Address[0].category
-                            
-                            if addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_addr or addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_net:
-                                addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
-                                rowkey = self.pack_rowkey_ipv4(salt, addr, hash)
-                            
-                            elif addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_addr or addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_net:
-                                addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
-                                rowkey = self.pack_rowkey_ipv6(salt, addr, hash)
+                            self.L("botnet")
+                            self.botnet_handler.extract(iodef)
                                 
                         elif table_type == "malware":
-                            print "malware"
+                            self.L("malware")
                                 
                     except Exception as e:
                         print "Failed to parse restored object: ", e
 
     
             #self.setcheckpoint(endts+1)
+            

@@ -33,7 +33,7 @@ from CIF.CtrlCommands.Ping import *
 
 from CIF.Foundation import Foundation
 from DB.APIKeys import *
-from DB.Exploder import *
+from DB.Exploder import Exploder
 
 print "cif-db proof of concept"
 
@@ -271,7 +271,7 @@ try:
     global apikeys
     
     print "Initializing Exploder"
-    exploder = Exploder(connection, False)
+    exploder = Exploder.Exploder(connection, False)
     exploder.do_some_work()
     
     print "Initializing APIKeys object"
@@ -309,6 +309,8 @@ try:
     while True:
         msg = msg_pb2.MessageType()
         msg.ParseFromString(subscriber.recv())
+        exploder.do_some_work()
+
         
         if apikeys.is_valid(msg.apikey):
             if msg.type == msg_pb2.MessageType.SUBMISSION and len(msg.submissionRequest) > 0:
