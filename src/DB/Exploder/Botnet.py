@@ -50,19 +50,28 @@ class Botnet(object):
             syslog.syslog(caller + ": " + msg)
             
     def pack_rowkey_ipv4(self, salt, addr):
+        """
+        rowkey: salt (2 bytes) + keytype(0x0=ipv4) + packedaddr(4 bytes)
+        """
         if re.match(r'^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$', addr) != None:
             a = addr.split(".")
             b = int(a[0])<<24 | int(a[1])<<16 | int(a[2])<<8 | int(a[3])
             print "making rowkey for ", self.addr, " int=", b
-            return struct.pack(">HIIII", self.salt.next(), 0, 0, 0, b) 
+            return struct.pack(">HBI", self.salt.next(), 0x0, b) 
         else:
             raise Exception("Not an ipv4 addr: " + addr)
         
     def pack_rowkey_ipv6(self, salt, addr):
-        return struct.pack(">HIIII", self.salt.next(), self.addr) 
+        """
+        rowkey: salt (2 bytes) + keytype(0x1=ipv6) + packedaddr(16 bytes)
+        """
+        return struct.pack(">HBIIII", self.salt.next(), 0x1, self.addr) 
     
     def pack_rowkey_fqdn(self, salt, fqdn):
-        return None
+        """
+        rowkey: salt (2 bytes) + keytype(0x2=fqdn) + string
+        """
+        return struct.pack(">HBs", self.salt.next(), 0x2, fqdn) 
     
     def reset(self):
         self.empty = True

@@ -123,6 +123,21 @@ def dump_cif_objs(starttime, endtime):
     print count, " rows total."
 
 def dump_infrastructure_botnet():
+    """
+    To search for ipv4:
+       for salt in server_list:
+          startrowkey = salt + 0x0 + ipv4/packed
+          endrowkey = salt + 0x0 + ipv4+1/packed
+          scan()...
+    
+    ipv4/packed can be a full address, or just a prefix, and the fact that
+    the rowkeys are stored sorted will take care of locating the right records
+    
+    if ipv4 is a prefix eg 0x80CD0000 then ipv4+1/packed will be 0x80CE0000 
+    
+    if ipv4 is not a prefix, then the row is directly fetched instead of 
+    performing a scan
+    """
     print "Dumping infrastructure_botnet"
     connection = HBConnection('localhost')
     tbl = connection.table('infrastructure_botnet')
@@ -131,18 +146,18 @@ def dump_infrastructure_botnet():
     
     # key is 2 byte salt + 16 byte address field 
     for key, data in tbl.scan():
-        if 'b:addr_type' in data:
-            if data['b:addr_type'] == "5":
-                # ipv4 rowkey is 2 byte salt + 16 byte addr left padded w/zeros 
-                psalt, z1, z2, z3, o1,o2,o3,o4 = struct.unpack(">HIIIBBBB", key[:18])
-                print ".".join([str(o1), str(o2), str(o3), str(o4)]),
-                for cn in ['prefix', 'asn', 'asn_desc','rir', 'cc', 'confidence', 'port', 'proto']:
-                    print data['b:' + cn], "|\t", 
-                print "\n"
-            else:
-                print "b:addr_type is not 5 ", data['b:addr_type']
-        else:
-            print "no b:addr_type column found"
+        psalt, atype = struct.unpack(">HB", key[:3])
+        if atype == 0x0:
+            o1, o2, o3, o4 = struct.unpack(">BBBB", key[3:7])
+            print ".".join([str(o1), str(o2), str(o3), str(o4)]),
+            for cn in ['prefix', 'asn', 'asn_desc','rir', 'cc', 'confidence', 'port', 'proto']:
+                print data['b:' + cn], "|\t", 
+            print "\n"
+        elif type == 0x1:
+            print "ipv6"
+        elif type == 0x2:
+            print "fqdn"
+
                 
 try:
     opts, args = getopt.getopt(sys.argv[1:], 't:s:e:D:h')
