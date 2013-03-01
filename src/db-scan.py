@@ -44,14 +44,108 @@ def tots(dt):
     
 def usage():
     print "\
-    db-scan.py [-s starttime] [-e endtime]\n\
-        -s  start time YYYY-MM-DD-HH-MM-SS (def: start-5mins)\n\
-        -e  start time YYYY-MM-DD-HH-MM-SS (def: now)\n\
+    db-scan.py [-t tablename] [-s starttime] [-e endtime]\n\
+        -t  cif_objs\n\
+           -s  start time YYYY-MM-DD-HH-MM-SS (def: start-5mins)\n\
+           -e  start time YYYY-MM-DD-HH-MM-SS (def: now)\n\
+        -t  infrastructure_botnet\n\
     hour is in 24 hour format\n"
     
+
+def dump_cif_objs(starttime, endtime):
+    salt = 0xFF00
+    srowid = struct.pack(">HIIIII", salt, starttime, 0,0,0,0)
+    erowid = struct.pack(">HIIIII", salt, endtime, 0,0,0,0)
     
+    print "start ", hex(salt), srowid.encode('hex') 
+    print "end   ", erowid.encode('hex')
+    
+    connection = HBConnection('localhost')
+    tbl = connection.table('cif_objs')
+    
+    print "Dumping cif_objs"
+    
+    count = 0
+    
+    for key, data in tbl.scan(row_start=srowid, row_stop=erowid):
+        psalt, pts = struct.unpack(">HI", key[:6])
+        print "entered on: ", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(pts))
+        contains = data.keys()[0]
+        obj_data = data[contains]
+        print "contains: ", contains
+        count = count + 1
+    
+        if contains == "cf:RFC5070_IODEF_v1_pb2":
+            iodef = RFC5070_IODEF_v1_pb2.IODEF_DocumentType()
+    
+            try:
+                iodef.ParseFromString(obj_data)
+                
+                ii = iodef.Incident[0]
+                table_type = ii.Assessment[0].Impact[0].content.content
+                confidence = ii.Assessment[0].Confidence.content
+                severity = ii.Assessment[0].Impact[0].severity
+                addr_type = ii.EventData[0].Flow[0].System[0].Node.Address[0].category
+                
+                addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
+            
+                prefix = 'na'
+                asn = 'na'
+                asn_desc = 'na'
+                rir = 'na'
+                cc = 'na'
+                
+                # addr_type == 5 then AddtData will contain asn, asn_desc, cc, rir, prefix
+                if addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_addr:
+                    for i in ii.EventData[0].Flow[0].System[0].AdditionalData:
+                        if i.meaning == 'prefix':
+                            prefix = i.content
+                        elif i.meaning == 'asn':
+                            asn = i.content
+                        elif i.meaning == 'asn_desc':
+                            asn_desc = i.content
+                        elif i.meaning == 'rir':
+                            rir = i.content
+                        elif i.meaning == 'cc':
+                            cc = i.content
+    
+                                
+                print "\ttype: ", table_type
+                print "\tconfidence: ", confidence
+                print "\tseverity: ", severity
+                print "\taddr_type: ", addr_type
+                print "\taddr: ", addr, prefix, asn, asn_desc, rir, cc
+                
+            except Exception as e:
+                print "Failed to restore message to stated type: ", e
+    
+        
+    print count, " rows total."
+
+def dump_infrastructure_botnet():
+    print "Dumping infrastructure_botnet"
+    connection = HBConnection('localhost')
+    tbl = connection.table('infrastructure_botnet')
+    
+    count = 0
+    
+    # key is 2 byte salt + 16 byte address field 
+    for key, data in tbl.scan():
+        if 'b:addr_type' in data:
+            if data['b:addr_type'] == "5":
+                # ipv4 rowkey is 2 byte salt + 16 byte addr left padded w/zeros 
+                psalt, z1, z2, z3, o1,o2,o3,o4 = struct.unpack(">HIIIBBBB", key[:18])
+                print ".".join([str(o1), str(o2), str(o3), str(o4)]),
+                for cn in ['prefix', 'asn', 'asn_desc','rir', 'cc', 'confidence', 'port', 'proto']:
+                    print data['b:' + cn], "|\t", 
+                print "\n"
+            else:
+                print "b:addr_type is not 5 ", data['b:addr_type']
+        else:
+            print "no b:addr_type column found"
+                
 try:
-    opts, args = getopt.getopt(sys.argv[1:], 's:e:D:h')
+    opts, args = getopt.getopt(sys.argv[1:], 't:s:e:D:h')
 except getopt.GetoptError, err:
     print str(err)
     usage()
@@ -60,10 +154,12 @@ except getopt.GetoptError, err:
 debug = 0
 starttime = -1
 endtime = -1
-
+table_name = None
 
 for o, a in opts:
-    if o == "-s":
+    if o == "-t":
+        table_name = a
+    elif o == "-s":
         starttime = tots(a)
     elif o == "-e":
         endtime = tots(a)
@@ -73,86 +169,22 @@ for o, a in opts:
     elif o == "-D":
         debug = a
 
-if starttime == -1 and endtime != -1:
-    starttime = endtime - 300
-elif starttime != -1 and endtime == -1:
-    endtime = starttime + 300
-elif starttime == -1 and endtime == -1:
-    endtime = time.time()
-    starttime = endtime - 300
+if table_name == "cif_objs":
+    if starttime == -1 and endtime != -1:
+        starttime = endtime - 300
+    elif starttime != -1 and endtime == -1:
+        endtime = starttime + 300
+    elif starttime == -1 and endtime == -1:
+        endtime = time.time()
+        starttime = endtime - 300
+
+    print "cif_objs: start=", starttime, " end=", endtime
+
+    dump_cif_objs(starttime, endtime)
     
-print "start=", starttime, " end=", endtime
-
-salt = 0xFF00
-srowid = struct.pack(">HIIIII", salt, starttime, 0,0,0,0)
-erowid = struct.pack(">HIIIII", salt, endtime, 0,0,0,0)
-
-print "start ", hex(salt), srowid.encode('hex') 
-print "end   ", erowid.encode('hex')
-
-connection = HBConnection('localhost')
-tbl = connection.table('cif_objs')
-
-print "Dumping cif_objs"
-
-count = 0
-
-for key, data in tbl.scan(row_start=srowid, row_stop=erowid):
-    psalt, pts = struct.unpack(">HI", key[:6])
-    print "entered on: ", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(pts))
-    contains = data.keys()[0]
-    obj_data = data[contains]
-    print "contains: ", contains
-    count = count + 1
-
-    if contains == "cf:RFC5070_IODEF_v1_pb2":
-        iodef = RFC5070_IODEF_v1_pb2.IODEF_DocumentType()
-
-        try:
-            iodef.ParseFromString(obj_data)
-            
-            ii = iodef.Incident[0]
-            table_type = ii.Assessment[0].Impact[0].content.content
-            confidence = ii.Assessment[0].Confidence.content
-            severity = ii.Assessment[0].Impact[0].severity
-            addr_type = ii.EventData[0].Flow[0].System[0].Node.Address[0].category
-            
-            addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
-        
-            prefix = 'na'
-            asn = 'na'
-            asn_desc = 'na'
-            rir = 'na'
-            cc = 'na'
-            
-            # addr_type == 5 then AddtData will contain asn, asn_desc, cc, rir, prefix
-            if addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_addr:
-                for i in ii.EventData[0].Flow[0].System[0].AdditionalData:
-                    if i.meaning == 'prefix':
-                        prefix = i.content
-                    elif i.meaning == 'asn':
-                        asn = i.content
-                    elif i.meaning == 'asn_desc':
-                        asn_desc = i.content
-                    elif i.meaning == 'rir':
-                        rir = i.content
-                    elif i.meaning == 'cc':
-                        cc = i.content
-
-                            
-            print "\ttype: ", table_type
-            print "\tconfidence: ", confidence
-            print "\tseverity: ", severity
-            print "\taddr_type: ", addr_type
-            print "\taddr: ", addr, prefix, asn, asn_desc, rir, cc
-            
-
-            
-        except Exception as e:
-            print "Failed to restore message to stated type: ", e
-
+if table_name == "infrastructure_botnet":
+    dump_infrastructure_botnet()
     
-print count, " rows total."
 
 
 
