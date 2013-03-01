@@ -20,6 +20,14 @@ import cifsupport
 from DB.Salt import Salt
 
 class Botnet(object):
+    """
+    tablename: infrastructure_botnet
+    key: salt + address or salt + fqdn
+         address is left padded with nulls into a 16 byte field
+         fqdn is simply appended
+    columns:
+        b:prefix, asn, asn_desc, rir, cc, confidence, addr_type, port, ip_proto
+    """
     def __init__ (self, connection, debug):
         self.debug = debug
         self.dbh = connection
@@ -28,6 +36,8 @@ class Botnet(object):
         if not "infrastructure_botnet" in t:
             raise Exception("missing infrastructure_botnet table")
 
+        self.table = connection.table('infrastructure_botnet').batch(batch_size=5)
+        
         self.reset()
         self.md5 = hashlib.md5()
         self.salt = Salt()
@@ -39,13 +49,22 @@ class Botnet(object):
         else:
             syslog.syslog(caller + ": " + msg)
             
-    def pack_rowkey_ipv4(self, salt, addr, hash):
-        return None
+    def pack_rowkey_ipv4(self, salt, addr):
+        if re.match(r'^[0-9]\,[0-9]\.[0-9]\.[0-9]$', addr) != None:
+            a = addr.split(".")
+            b = int(a[0])<<24 | int(a[1])<<16 | int(a[2])<<8 | int(a[3])
+            print "making rowkey for ", self.addr, " int=", b
+            return struct.pack(">HIIII", self.salt.next(), 0, 0, 0, b) 
+        else:
+            raise Exception("Not an ipv4 addr: " + addr)
+    def pack_rowkey_ipv6(self, salt, addr):
+        return struct.pack(">HIIII", self.salt.next(), self.addr) 
     
-    def pack_rowkey_ipv6(self, salt, addr, hash):
+    def pack_rowkey_fqdn(self, salt, fqdn):
         return None
     
     def reset(self):
+        self.empty = True
         self.prefix = None
         self.asn = None
         self.asn_desc = None
@@ -56,9 +75,30 @@ class Botnet(object):
         self.confidence = None
         self.addr_type = None
         self.port = None
-        self.ip_proto = None
+        self.proto = None
         self.hash = None
-        
+    
+    def commit(self):
+        if self.empty == False:
+            self.L("committing")
+            try:
+                self.table.put(self.rowkey, 
+                               {
+                                    'b:prefix': self.prefix,
+                                    'b:asn': self.asn,
+                                    'b:asn_desc': self.asn_desc,
+                                    'b:rir': self.rir,
+                                    'b:cc': self.cc,
+                                    'b:confidence': self.confidence,
+                                    'b:addr_type': self.addr_type,
+                                    'b:port': self.port,
+                                    'b:proto': self.proto
+                                })
+            except Exception as e:
+                self.L("failed to put record to infra_botnet table: " + e.strerror)
+        else:
+            self.L("nothing to commit")
+            
     def extract(self, iodef):
         self.reset()
         
@@ -75,7 +115,7 @@ class Botnet(object):
         
         if self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_addr or self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_net:
             self.addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
-            self.rowkey = self.pack_rowkey_ipv4(self.salt.next(), self.addr, self.hash)
+            self.rowkey = self.pack_rowkey_ipv4(self.salt.next(), self.addr)
 
             if 'Port' in ii.EventData[0].Flow[0].System[0].Service:
                 self.port = ii.EventData[0].Flow[0].System[0].Service.Port
@@ -94,11 +134,13 @@ class Botnet(object):
                     elif i.meaning == 'cc':
                         self.cc = i.content
         
+            self.empty = False
+            
         # ipv6 addresses and networks
         
         elif self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_addr or self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_net:
             self.addr = ii.EventData[0].Flow[0].System[0].Node.Address[0].content
-            self.rowkey = self.pack_rowkey_ipv6(self.salt.next(), self.addr, self.hash)
+            self.rowkey = self.pack_rowkey_ipv6(self.salt.next(), self.addr)
             
             for i in ii.EventData[0].Flow[0].System[0].AdditionalData:
                     if i.meaning == 'prefix':
@@ -111,5 +153,6 @@ class Botnet(object):
                         self.rir = i.content
                     elif i.meaning == 'cc':
                         self.cc = i.content
-                        
+        
+            self.empty = False
         

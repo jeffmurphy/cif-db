@@ -65,6 +65,9 @@ class Exploder(object):
             self.L("wakup")
             
             co = self.dbh.table('cif_objs')
+            
+            self.L("connected to cif_objs")
+            
             startts = self.getcheckpoint()
             endts = int(time.time())
             processed = 0
@@ -84,7 +87,7 @@ class Exploder(object):
                     try:
                         iodef.ParseFromString(obj_data)
 
-                        print iodef
+                        #print iodef
                         ii = iodef.Incident[0]
                         table_type = ii.Assessment[0].Impact[0].content.content
                         rowkey = None
@@ -92,7 +95,8 @@ class Exploder(object):
                         if table_type == "botnet":
                             self.L("botnet")
                             self.botnet_handler.extract(iodef)
-                                
+                            self.botnet_handler.commit()
+                            
                         elif table_type == "malware":
                             self.L("malware")
                                 
