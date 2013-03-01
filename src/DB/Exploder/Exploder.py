@@ -6,6 +6,7 @@ import sys
 import threading
 import happybase
 import struct
+import traceback
 
 sys.path.append('/usr/local/lib/cif-protocol/pb-python/gen-py')
 
@@ -46,11 +47,13 @@ class Exploder(object):
         self.kickit.release()
         
     def getcheckpoint(self):
-        t = self.dbh.table('registry')
-        c = t.row('exploder_checkpoint')
-        if c != None and 'b:ts' in c:
-            return c['b:ts']
-        return 0
+        try:
+            t = self.dbh.table('registry')
+            c = t.row('exploder_checkpoint')
+            if c != None and 'b:ts' in c:
+                return c['b:ts']
+        finally:
+            return 0
     
     def setcheckpoint(self, ts):
         t = self.dbh.table('registry')
@@ -102,6 +105,7 @@ class Exploder(object):
                                 
                     except Exception as e:
                         print "Failed to parse restored object: ", e
+                        traceback.print_exc()
 
     
             #self.setcheckpoint(endts+1)

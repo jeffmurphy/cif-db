@@ -50,13 +50,14 @@ class Botnet(object):
             syslog.syslog(caller + ": " + msg)
             
     def pack_rowkey_ipv4(self, salt, addr):
-        if re.match(r'^[0-9]\,[0-9]\.[0-9]\.[0-9]$', addr) != None:
+        if re.match(r'^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$', addr) != None:
             a = addr.split(".")
             b = int(a[0])<<24 | int(a[1])<<16 | int(a[2])<<8 | int(a[3])
             print "making rowkey for ", self.addr, " int=", b
             return struct.pack(">HIIII", self.salt.next(), 0, 0, 0, b) 
         else:
             raise Exception("Not an ipv4 addr: " + addr)
+        
     def pack_rowkey_ipv6(self, salt, addr):
         return struct.pack(">HIIII", self.salt.next(), self.addr) 
     
@@ -84,18 +85,19 @@ class Botnet(object):
             try:
                 self.table.put(self.rowkey, 
                                {
-                                    'b:prefix': self.prefix,
-                                    'b:asn': self.asn,
-                                    'b:asn_desc': self.asn_desc,
-                                    'b:rir': self.rir,
-                                    'b:cc': self.cc,
-                                    'b:confidence': self.confidence,
-                                    'b:addr_type': self.addr_type,
-                                    'b:port': self.port,
-                                    'b:proto': self.proto
+                                    'b:prefix': str(self.prefix),
+                                    'b:asn': str(self.asn),
+                                    'b:asn_desc': str(self.asn_desc),
+                                    'b:rir': str(self.rir),
+                                    'b:cc': str(self.cc),
+                                    'b:confidence': str(self.confidence),
+                                    'b:addr_type': str(self.addr_type),
+                                    'b:port': str(self.port),
+                                    'b:proto': str(self.proto)
                                 })
             except Exception as e:
-                self.L("failed to put record to infra_botnet table: " + e.strerror)
+                self.L("failed to put record to infra_botnet table: ")
+                print e
         else:
             self.L("nothing to commit")
             

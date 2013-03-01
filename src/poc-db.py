@@ -270,10 +270,6 @@ try:
     cif_idl = connection.table('cif_idl')
     global apikeys
     
-    print "Initializing Exploder"
-    exploder = Exploder.Exploder(connection, False)
-    exploder.do_some_work()
-    
     print "Initializing APIKeys object"
     apikeys = APIKeys(connection, True)
     
@@ -306,6 +302,11 @@ try:
     
     time.sleep(1) # wait for router to connect, sort of lame but see this a lot in zmq code
     
+        
+    print "Initializing Exploder"
+    exploder = Exploder.Exploder(connection, False)
+    exploder.do_some_work()
+    
     while True:
         msg = msg_pb2.MessageType()
         msg.ParseFromString(subscriber.recv())
@@ -337,8 +338,10 @@ try:
     cf.unregister()
     
 except KeyboardInterrupt:
-    cif_objs.send() # flush
-    cf.ctrlc()
+    if cif_objs != None:
+        cif_objs.send() # flush
+    if cf != None:
+        cf.ctrlc()
 except IOError as e:
     print "I/O error({0}): {1}".format(e.errno, e.strerror)
 except KeyError as e:
