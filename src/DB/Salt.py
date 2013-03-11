@@ -18,10 +18,13 @@ class Salt(object):
             print caller + ": " + msg
         else:
             syslog.syslog(caller + ": " + msg)
+    
+    def range(self):
+        return self.servers
             
     def next(self):
         self.lock.acquire()
-        if self.salt > self.servers:
+        if self.salt >= self.servers:
             self.salt = 0x0000
         self.salt = self.salt + 1
         self.lock.release()
