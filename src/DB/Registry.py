@@ -15,7 +15,7 @@ class Registry(object):
         if not "registry" in t:
             raise Exception("missing registry table")
 
-        self.table = connection.table('registry').batch(batch_size=5)
+        self.table = connection.table('registry')
         
         
     def L(self, msg):
@@ -25,22 +25,50 @@ class Registry(object):
         else:
             syslog.syslog(caller + ": " + msg)
     
-    def get(self, k):
+    def get(self, k = None):
         """
         rowkey = k
         b:type = type
-        b:val  = val
+        b:value  = val
+        
+        if k is not None: return the value or None if it doesnt exist
+        if k is None: return a list of all registry keys (list may be empty)
         """
-        return True
-    
+        if k != None:
+            r = self.table.row(k)
+            if r != None:
+                if 'b:type' in r and 'b:value' in r:
+                    if r['b:type'] in ["int"]:
+                        return int(r['b:value'])
+                    if r['b:type'] in ["long"]:
+                        return long(r['b:value'])
+                    if r['b:type'] in ["double", "float"]:
+                        return float(r['b:value'])
+                    return str(r['b:value'])
+                return None
+        else:
+            r = self.table.scan()
+            rv = []
+            for tk, tv in r:
+                rv.append(tk)
+            return rv
+        
+    def delete(self, k):
+        self.table.delete(k)
+        
     def set(self, k, v):
+        at = None
+        av = str(v)
         if type(v) is int:
-            print 'set int'
+            at = "int"
         elif type(v) is str:
-            print 'set str'
+            at = "str"
         elif type(v) is float:
-            print 'set float'
+            at = "float"
         elif type(v) is long:
-            print 'set long'
+            at = "long"
         elif type(v) is double:
-            print 'set double'  
+            at = "double"
+        
+        self.table.put(k, {"b:type": at, "b:value": av})
+         
