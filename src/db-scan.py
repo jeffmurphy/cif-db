@@ -30,7 +30,6 @@ import cifsupport
 def HBConnection(host):
     c = happybase.Connection(host)
     t = c.tables()
-    print "found tables: ", t
     if not "cif_idl" in t:
         raise Exception("missing cif_idl table")
     if not "cif_objs" in t:

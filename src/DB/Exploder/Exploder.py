@@ -110,5 +110,5 @@ class Exploder(object):
                         traceback.print_exc()
 
     
-            #self.setcheckpoint(endts+1)
+            self.setcheckpoint(endts+1)
             
