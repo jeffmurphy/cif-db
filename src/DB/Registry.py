@@ -4,18 +4,20 @@ import time
 import re
 import sys
 import threading
+import socket
 import happybase
 
 class Registry(object):
-    def __init__ (self, connection, debug):
+    def __init__ (self, hbhost, debug):
         self.debug = debug
         self.lock = threading.RLock()
-        self.dbh = connection
+        self.dbh = happybase.Connection(hbhost)
+
         t = self.dbh.tables()
         if not "registry" in t:
             raise Exception("missing registry table")
 
-        self.table = connection.table('registry')
+        self.table = self.dbh.table('registry')
         
         
     def L(self, msg):

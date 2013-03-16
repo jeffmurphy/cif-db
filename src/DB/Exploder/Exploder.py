@@ -4,6 +4,7 @@ import time
 import re
 import sys
 import threading
+import socket
 import happybase
 import struct
 import traceback
@@ -19,11 +20,12 @@ import cifsupport
 
 import Botnet
 from DB.Salt import Salt
+from DB.Registry import Registry
 
 class Exploder(object):
-    def __init__ (self, connection, debug):
+    def __init__ (self, hbhost, debug):
         self.debug = debug
-        self.dbh = connection
+        self.dbh = happybase.Connection(hbhost)
         t = self.dbh.tables()
 
         self.table = self.dbh.table('infrastructure_botnet')
@@ -32,8 +34,12 @@ class Exploder(object):
         self.proc_thread.start()
         
         self.botnet_handler = Botnet.Botnet(connection, debug)
-        
-        self.salt = Salt()
+        self.registry = Registry()
+        self.num_servers = registry.get('hadoop.num_servers')
+        if self.num_servers == None:
+            self.num_servers = 1
+            
+        self.salt = Salt(self.num_servers, self.debug)
         
         
     def L(self, msg):

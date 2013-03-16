@@ -75,7 +75,7 @@ try:
             debug = a
     
     
-    reg = Registry(connection, debug)
+    reg = Registry("localhost", debug)
     
     if del_name != None:
         reg.delete(del_name)

@@ -34,6 +34,7 @@ from CIF.CtrlCommands.Ping import *
 from CIF.Foundation import Foundation
 from DB.APIKeys import *
 from DB.Exploder import Exploder
+from DB.Registry import Registry
 
 print "cif-db proof of concept"
 
@@ -264,10 +265,21 @@ global cf
 global exploder
 
 try:
+    hbhost = "localhost"
+    
     print "Connect to HBase"
-    connection = HBConnection('localhost')
+    connection = HBConnection(hbhost)
     cif_objs = connection.table('cif_objs').batch(batch_size=5) # set very low for development, set to 1000+ for test/qa/prod
     cif_idl = connection.table('cif_idl')
+    
+    print "Init Registry"
+    registry = Registry(hbhost, debug)
+    num_servers = registry.get('hadoop.num_servers')
+    if num_servers == None:
+        num_servers = 1
+        print "hadoop.num_servers not set. defaulting."
+    print "hadoop.num_servers = ", num_servers
+    
     global apikeys
     
     print "Initializing APIKeys object"
@@ -304,7 +316,7 @@ try:
     
         
     print "Initializing Exploder"
-    exploder = Exploder.Exploder(connection, False)
+    exploder = Exploder.Exploder(hbhost, False)
     exploder.do_some_work()
     
     while True:

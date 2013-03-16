@@ -28,9 +28,11 @@ class Botnet(object):
     columns:
         b:prefix, asn, asn_desc, rir, cc, confidence, addr_type, port, ip_proto
     """
-    def __init__ (self, connection, debug):
+    def __init__ (self, connection, num_servers = 1, debug = 0):
         self.debug = debug
         self.dbh = connection
+        self.num_servers = num_servers
+        
         t = self.dbh.tables()
         
         if not "infrastructure_botnet" in t:
@@ -40,7 +42,7 @@ class Botnet(object):
         
         self.reset()
         self.md5 = hashlib.md5()
-        self.salt = Salt()
+        self.salt = Salt(self.num_servers, self.debug)
         
     def L(self, msg):
         caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])
