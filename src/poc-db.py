@@ -98,7 +98,7 @@ def writeToDb(cif_objs, cif_idl, sr):
     md5.update(sr.SerializeToString())
     hash = md5.digest()
     colspec = "cf:" + str(sr.baseObjectType)
-    salt = 0xFF00
+    salt = 0xFF00  # FIX
     try:
         saveIDL(cif_idl, sr)
         rowid = struct.pack(">HI16s", salt, ts, hash)

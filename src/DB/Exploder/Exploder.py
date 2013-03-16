@@ -53,17 +53,13 @@ class Exploder(object):
         self.kickit.release()
         
     def getcheckpoint(self):
-        try:
-            t = self.dbh.table('registry')
-            c = t.row('exploder_checkpoint')
-            if c != None and 'b:ts' in c:
-                return c['b:ts']
-        finally:
-            return 0
+        t = self.registry.get('exploder.checkpoint')
+        if t != None:
+            return t
+        return 0
     
     def setcheckpoint(self, ts):
-        t = self.dbh.table('registry')
-        t.put('exploder_checkpoint', { 'b:ts': ts })
+        self.registry.set('exploder.checkpoint', ts)
     
     def run(self):
         self.L("Exploder running")
@@ -83,7 +79,7 @@ class Exploder(object):
 
             self.L("processing: " + str(startts) + " to " + str(endts))
             
-            salt = 0xFF00
+            salt = 0xFF00  # FIX fix in poc-db at the same time (in writeToDb())
             srowid = struct.pack(">HIIIII", salt, startts, 0,0,0,0)
             erowid = struct.pack(">HIIIII", salt, endts, 0,0,0,0)
 
