@@ -33,9 +33,9 @@ class Exploder(object):
         self.proc_thread = threading.Thread(target=self.run, args=())
         self.proc_thread.start()
         
-        self.botnet_handler = Botnet.Botnet(connection, debug)
-        self.registry = Registry()
-        self.num_servers = registry.get('hadoop.num_servers')
+        self.botnet_handler = Botnet.Botnet(self.dbh, debug)
+        self.registry = Registry(hbhost, debug)
+        self.num_servers = self.registry.get('hadoop.num_servers')
         if self.num_servers == None:
             self.num_servers = 1
             
