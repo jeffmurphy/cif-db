@@ -44,7 +44,7 @@ class Query(object):
     for now, we do a switch/case on those hashes to process each query type
     
     we will fetch up to self.limit records matching the query, pack them into
-    iodef documents, insert them into the QueryResponse and return that.
+    iodef documents, insert them into the QueryResponse and return that. 
     
     that object (the QR) will be placed back into the control message and sent
     back to the client from which it came.
