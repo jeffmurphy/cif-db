@@ -35,6 +35,7 @@ from CIF.Foundation import Foundation
 from DB.APIKeys import *
 from DB.Exploder import Exploder
 from DB.Registry import Registry
+from DB.Query import Query
 
 print "cif-db proof of concept"
 
@@ -231,7 +232,14 @@ def controlMessageHandler(msg):
                 msg.statusMsg = str(e)
                 
             cf.sendmsg(msg, None)
-            
+        
+        elif msg.command == control_pb2.ControlType.CIF_QUERY_REQUEST:
+            qrs = []
+            for i in range(0, len(msg.queryRequestList.query)):
+                qe = Query(msg.queryRequestList.query[i], msg.queryRequestList.limit, True)
+                qresponse = qe.execqr()
+                qrs.append(qresponse)
+            msg.queryResponseList.extend(qrs)
             
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'c:r:m:D:h')
@@ -331,11 +339,11 @@ try:
                 for i in range(0, len(msg.submissionRequest)):
                     writeToDb(cif_objs, cif_idl, msg.submissionRequest[i])
             
+            # ignore QUERY logic at present, see controlmessagehandler, above, instead
+            # we arent processing QUERYs recvd via this PUB/SUB connection 
             elif msg.type == msg_pb2.MessageType.QUERY and len(msg.queryRequest) > 0:
-                print "Got a QUERY. Processing."
-                for i in range(0, len(msg.submissionRequest)):
-                    qreply = readFromDb(msg.queryRequest[0])
-                    msg.reply.append(qreply)
+                print "Got a QUERY. Processing: "
+
                 print "Gathered replies from DB. Sending back to requester. TODO"
             
             else:
