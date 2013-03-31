@@ -89,6 +89,7 @@ class Botnet(object):
         self.port = None
         self.proto = None
         self.hash = None
+        self.iodef_rowkey = None
     
     def commit(self):
         if self.empty == False:
@@ -104,7 +105,8 @@ class Botnet(object):
                                     'b:confidence': str(self.confidence),
                                     'b:addr_type': str(self.addr_type),
                                     'b:port': str(self.port),
-                                    'b:proto': str(self.proto)
+                                    'b:proto': str(self.proto),
+                                    'b:iodef_rowkey': str(self.iodef_rowkey)
                                 })
             except Exception as e:
                 self.L("failed to put record to infra_botnet table: ")
@@ -112,8 +114,10 @@ class Botnet(object):
         else:
             self.L("nothing to commit")
             
-    def extract(self, iodef):
+    def extract(self, iodef_rowkey, iodef):
         self.reset()
+        
+        self.iodef_rowkey = iodef_rowkey
         
         self.md5.update(iodef.SerializeToString())
         self.hash = self.md5.digest()
