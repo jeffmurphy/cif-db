@@ -78,7 +78,7 @@ class Query(object):
             #   pack it into the queryresponse
             # return the queryresponse
             
-            for key, value in self.ibn_tbl.scan():
+            for key, value in self.tbl_ibn.scan():
                 print value
 
         print "return ", qrs
