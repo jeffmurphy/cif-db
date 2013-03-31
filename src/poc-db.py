@@ -236,7 +236,9 @@ def controlMessageHandler(msg):
         elif msg.command == control_pb2.ControlType.CIF_QUERY_REQUEST:
             qrs = []
             for i in range(0, len(msg.queryRequestList.query)):
-                qe = Query(msg.queryRequestList.query[i], msg.queryRequestList.limit, True)
+                qe = Query(hbhost, True) # TODO move this line outside of this routine
+                qe.setqr(msg.queryRequestList.query[i])
+                qe.setlimit(msg.queryRequestList.limit)
                 qresponse = qe.execqr()
                 qrs.append(qresponse)
             msg.queryResponseList.extend(qrs)
@@ -271,6 +273,7 @@ myip = socket.gethostbyname(socket.gethostname()) # has caveats
 
 global cf
 global exploder
+global hbhost
 
 try:
     hbhost = "localhost"
