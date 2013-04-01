@@ -235,6 +235,12 @@ def controlMessageHandler(msg):
         
         elif msg.command == control_pb2.ControlType.CIF_QUERY_REQUEST:
             qrs = []
+            tmp = msg.dst
+            msg.dst = msg.src
+            msg.src = tmp
+            
+            msg.status = control_pb2.ControlType.SUCCESS
+
             for i in range(0, len(msg.queryRequestList.query)):
                 qe = Query(hbhost, True) # TODO move this line outside of this routine
                 qe.setqr(msg.queryRequestList.query[i])
@@ -242,6 +248,7 @@ def controlMessageHandler(msg):
                 qresponse = qe.execqr()
                 qrs.append(qresponse)
             msg.queryResponseList.extend(qrs)
+            cf.sendmsg(msg, None)
             
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'c:r:m:D:h')

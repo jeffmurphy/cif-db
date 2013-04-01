@@ -81,5 +81,7 @@ class Query(object):
             for key, value in self.tbl_ibn.scan():
                 print value
 
+        qrs.description = "none"
+        qrs.ReportTime = "2013-04-01 00:00:00"
         print "return ", qrs
         return qrs
