@@ -361,6 +361,7 @@ try:
     cf.unregister()
     
 except KeyboardInterrupt:
+    print "\n\nShutting down.\n\n"
     if cif_objs != None:
         cif_objs.send() # flush
     if cf != None:

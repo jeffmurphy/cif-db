@@ -30,7 +30,8 @@ class Exploder(object):
 
         self.table = self.dbh.table('infrastructure_botnet')
         self.kickit = threading.Semaphore(0)
-        self.proc_thread = threading.Thread(target=self.run, args=())
+        self.proc_thread = threading.Thread(target=self.run, name="Exploder daemon", args=())
+        self.proc_thread.daemon = True
         self.proc_thread.start()
         
         self.botnet_handler = Botnet.Botnet(self.dbh, debug)
