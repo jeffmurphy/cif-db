@@ -81,12 +81,10 @@ class Query(object):
                 _bot = (iodef_row.keys())[0]
                 iodoc = iodef_row[_bot]
                 bot = (_bot.split(":"))[1]
-                print "VALUE ", bot, iodoc
                 qrs.baseObjectType.append(bot)
                 qrs.data.append(iodoc)
                 
         qrs.description = "none"
         qrs.ReportTime = "2013-04-01 00:00:00"
 
-        print "return ", qrs
         return qrs
