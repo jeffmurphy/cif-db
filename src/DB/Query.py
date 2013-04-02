@@ -51,9 +51,6 @@ class Query(object):
         self.limit = limit
 
     """
-    libcif hashes queries and only sends the hash and not the actual query text.
-    for now, we do a switch/case on those hashes to process each query type
-    
     we will fetch up to self.limit records matching the query, pack them into
     iodef documents, insert them into the QueryResponse and return that. 
     
@@ -66,7 +63,7 @@ class Query(object):
 
         qrs = control_pb2.QueryResponse()
         
-        if self.qr.query == "ca2d339a50fa8da9b894076ed04236041071a1f0":
+        if self.qr.query == "infrastructure/botnet":
             # infrastructure/botnet
             self.L("Query for infrastructure/botnet")
             # open the infrastructure_botnet table
@@ -79,9 +76,17 @@ class Query(object):
             # return the queryresponse
             
             for key, value in self.tbl_ibn.scan():
-                print value
-
+                iodef_rowkey = value['b:iodef_rowkey']
+                iodef_row = self.tbl_co.row(iodef_rowkey)
+                _bot = (iodef_row.keys())[0]
+                iodoc = iodef_row[_bot]
+                bot = (_bot.split(":"))[1]
+                print "VALUE ", bot, iodoc
+                qrs.baseObjectType.append(bot)
+                qrs.data.append(iodoc)
+                
         qrs.description = "none"
         qrs.ReportTime = "2013-04-01 00:00:00"
+
         print "return ", qrs
         return qrs
