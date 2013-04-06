@@ -58,6 +58,7 @@ class Query(object):
         if self.qr.query == "ca2d339a50fa8da9b894076ed04236041071a1f0":
             # infrastructure/botnet
             self.L("Query for infrastructure/botnet")
+            
 
         print "return ", qrs
         return qrs
