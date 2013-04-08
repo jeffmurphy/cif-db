@@ -30,7 +30,8 @@ class Exploder(object):
 
         self.table = self.dbh.table('infrastructure_botnet')
         self.kickit = threading.Semaphore(0)
-        self.proc_thread = threading.Thread(target=self.run, args=())
+        self.proc_thread = threading.Thread(target=self.run, name="Exploder daemon", args=())
+        self.proc_thread.daemon = True
         self.proc_thread.start()
         
         self.botnet_handler = Botnet.Botnet(self.dbh, debug)
@@ -95,11 +96,10 @@ class Exploder(object):
                         #print iodef
                         ii = iodef.Incident[0]
                         table_type = ii.Assessment[0].Impact[0].content.content
-                        rowkey = None
                         
                         if table_type == "botnet":
                             self.L("botnet")
-                            self.botnet_handler.extract(iodef)
+                            self.botnet_handler.extract(key, iodef)
                             self.botnet_handler.commit()
                             
                         elif table_type == "malware":

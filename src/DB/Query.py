@@ -6,6 +6,11 @@ import zmq
 import sys
 import hashlib
 
+import socket
+import happybase
+import struct
+import traceback
+
 sys.path.append('/usr/local/lib/cif-protocol/pb-python/gen-py')
 import msg_pb2
 import feed_pb2
@@ -21,11 +26,17 @@ a queryResponse object
 """
 
 class Query(object):
-    def __init__ (self, qr, limit, debug):
+    def __init__ (self, hbhost, debug):
         self.debug = debug
-        self.qr = qr
-        self.limit = limit
- 
+        self.dbh = happybase.Connection(hbhost)
+
+        try:
+            self.tbl_ibn = self.dbh.table('infrastructure_botnet')
+            self.tbl_co = self.dbh.table('cif_objs')
+        except Exception as e:
+            self.L("failed to open tables")
+            raise
+        
     def L(self, msg):
        caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])
        if self.debug != None:
@@ -40,9 +51,6 @@ class Query(object):
         self.limit = limit
 
     """
-    libcif hashes queries and only sends the hash and not the actual query text.
-    for now, we do a switch/case on those hashes to process each query type
-    
     we will fetch up to self.limit records matching the query, pack them into
     iodef documents, insert them into the QueryResponse and return that. 
     
@@ -55,10 +63,29 @@ class Query(object):
 
         qrs = control_pb2.QueryResponse()
         
-        if self.qr.query == "ca2d339a50fa8da9b894076ed04236041071a1f0":
+        if self.qr.query == "infrastructure/botnet":
             # infrastructure/botnet
             self.L("Query for infrastructure/botnet")
             
+            # open the infrastructure_botnet table
+            # foreach entry
+            #   grab the iodef_rowkey value
+            #   open the cif_objs table
+            #   grab the row corresponding to the iodef_rowkey 
+            #   save those all up in a list
+            #   pack it into the queryresponse
+            # return the queryresponse
+            
+            for key, value in self.tbl_ibn.scan():
+                iodef_rowkey = value['b:iodef_rowkey']
+                iodef_row = self.tbl_co.row(iodef_rowkey)
+                _bot = (iodef_row.keys())[0]
+                iodoc = iodef_row[_bot]
+                bot = (_bot.split(":"))[1]
+                qrs.baseObjectType.append(bot)
+                qrs.data.append(iodoc)
+                
+        qrs.description = "none"
+        qrs.ReportTime = "2013-04-01 00:00:00"
 
-        print "return ", qrs
         return qrs
