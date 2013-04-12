@@ -81,7 +81,7 @@ class Exploder(object):
             self.L("processing: " + str(startts) + " to " + str(endts))
             
             salt = 0xFF00  # FIX fix in poc-db at the same time (in writeToDb())
-            srowid = struct.pack(">HIIIII", salt, startts, 0,0,0,0)
+            srowid = struct.pack(">HIIIII", salt, startts-1, 0,0,0,0)
             erowid = struct.pack(">HIIIII", salt, endts, 0,0,0,0)
 
             for key, data in co.scan(row_start=srowid, row_stop=erowid):
@@ -110,5 +110,5 @@ class Exploder(object):
                         traceback.print_exc()
 
     
-            self.setcheckpoint(endts+1)
+            self.setcheckpoint(endts)
             
