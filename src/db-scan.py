@@ -77,9 +77,12 @@ def dump_cif_objs(starttime, endtime):
         if contains == "cf:RFC5070_IODEF_v1_pb2":
             iodef = RFC5070_IODEF_v1_pb2.IODEF_DocumentType()
     
+            iodef.ParseFromString(obj_data)
+            
+            if verbose == True:
+                print iodef
+
             try:
-                iodef.ParseFromString(obj_data)
-                
                 ii = iodef.Incident[0]
                 table_type = ii.Assessment[0].Impact[0].content.content
                 confidence = ii.Assessment[0].Confidence.content
@@ -159,7 +162,7 @@ def dump_infrastructure_botnet():
 
                 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], 't:s:e:D:h')
+    opts, args = getopt.getopt(sys.argv[1:], 'vt:s:e:D:h')
 except getopt.GetoptError, err:
     print str(err)
     usage()
@@ -169,6 +172,8 @@ debug = 0
 starttime = -1
 endtime = -1
 table_name = None
+verbose = False
+
 
 for o, a in opts:
     if o == "-t":
@@ -180,6 +185,8 @@ for o, a in opts:
     elif o == "-h":
         usage()
         sys.exit(2)
+    elif o == "-v":
+        verbose = True
     elif o == "-D":
         debug = a
 
