@@ -162,6 +162,8 @@ class Indexer(object):
         for i in ii.EventData[0].Flow[0].System[0].Node.Address:
             self.addr_type = i.category
             
+            if i.category == "malware":
+                print ii
                 
             if self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_addr or self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_net:
                 self.addr = i.content
