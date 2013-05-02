@@ -18,7 +18,7 @@ import RFC5070_IODEF_v1_pb2
 import MAEC_v2_pb2
 import cifsupport
 
-import Botnet
+import Indexer
 from DB.Salt import Salt
 from DB.Registry import Registry
 
@@ -34,12 +34,13 @@ class Exploder(object):
         self.proc_thread.daemon = True
         self.proc_thread.start()
         
-        self.botnet_handler = Botnet.Botnet(self.dbh, debug)
         self.registry = Registry(hbhost, debug)
         self.num_servers = self.registry.get('hadoop.num_servers')
         if self.num_servers == None:
             self.num_servers = 1
-            
+
+        self.index_handler = {} # Indexer.Indexer(self.dbh, "botnet", self.num_servers, self.debug)
+        
         self.salt = Salt(self.num_servers, self.debug)
         
         
@@ -80,6 +81,9 @@ class Exploder(object):
 
             self.L("processing: " + str(startts) + " to " + str(endts))
             
+            if startts == 0:
+                startts = 1
+                
             salt = 0xFF00  # FIX fix in poc-db at the same time (in writeToDb())
             srowid = struct.pack(">HIIIII", salt, startts-1, 0,0,0,0)
             erowid = struct.pack(">HIIIII", salt, endts, 0,0,0,0)
@@ -97,14 +101,18 @@ class Exploder(object):
                         ii = iodef.Incident[0]
                         table_type = ii.Assessment[0].Impact[0].content.content
                         
-                        if table_type == "botnet":
-                            self.L("botnet")
-                            self.botnet_handler.extract(key, iodef)
-                            self.botnet_handler.commit()
-                            
-                        elif table_type == "malware":
-                            self.L("malware")
-                                
+                        self.L("\tIndexing: " + table_type)
+                        
+                        if table_type == "malware":
+                            print ii
+                
+                        if not table_type in self.index_handler:
+                            self.index_handler[table_type] = Indexer.Indexer(self.dbh, table_type, self.num_servers, self.debug)
+                        
+                        self.index_handler[table_type].extract(key, iodef)
+                        #self.index_handler[table_type].commit()
+                        
+
                     except Exception as e:
                         print "Failed to parse restored object: ", e
                         traceback.print_exc()

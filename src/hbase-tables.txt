@@ -52,11 +52,26 @@ drop 'cif_objs'
 create 'cif_objs', {NAME=>'cf', COMPRESSION=>'SNAPPY'}
 
 
+# feed tables (indexes)
+# infrastructure_botnet
+# infrastructure/malware
+# infrastructure/scan
+# domain/botnet
+# domain/malware
+# url/botnet
+# url/malware
+# url/phishing
+
+# feeds = infrastructure (addresses), domain, url, email, search, malware
+# these categories come from Assessment.Impact.content: botnet, fastflux, malware, nameserver, phishing, scan, spamvertising, suspicious, whitelist
 
 
-disable 'infrastructure_botnet'
-drop 'infrastructure_botnet'
-create 'infrastructure_botnet', {NAME => 'b', COMPRESSION => 'SNAPPY'}
+disable 'index_botnet'
+drop 'index_botnet'
+create 'index_botnet', {NAME => 'b', COMPRESSION => 'SNAPPY'}
+
+
+
 
 
 # b:uuid, b:guid, b:address, b:hash, b:confidence, b:reporttime
