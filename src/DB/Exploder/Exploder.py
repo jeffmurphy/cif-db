@@ -67,13 +67,9 @@ class Exploder(object):
         self.L("Exploder running")
         
         while True:
-            self.L("waiting for work")
             self.kickit.acquire() # will block provided kickit is 0
-            self.L("wakup")
             
             co = self.dbh.table('cif_objs')
-            
-            self.L("connected to cif_objs")
             
             startts = self.getcheckpoint()
             endts = int(time.time())

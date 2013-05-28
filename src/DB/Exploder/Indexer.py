@@ -85,9 +85,12 @@ class Indexer(object):
     
     def pack_rowkey_fqdn(self, salt, fqdn):
         """
-        rowkey: salt (2 bytes) + keytype(0x2=fqdn) + string
+        rowkey: salt (2 bytes) + keytype(0x2=fqdn) + strlen + string
+        strings up to 32767 allowed
         """
-        return struct.pack(">HBs", self.salt.next(), self.TYPE_FQDN(), fqdn) 
+        l = len(str(fqdn))
+        fmt = ">HBH%ds" % l
+        return struct.pack(fmt, self.salt.next(), self.TYPE_FQDN(), len(str(fqdn)), str(fqdn)) 
     
     def pack_rowkey_url(self, salt, url):
         return struct.pack(">HBs", self.salt.next(), self.TYPE_URL(), url) 
@@ -120,6 +123,8 @@ class Indexer(object):
         self.proto = None
         self.hash = None
         self.iodef_rowkey = None
+        self.fqdn = None
+        
     
     def commit(self):
         try:
@@ -145,13 +150,15 @@ class Indexer(object):
             
     def extract(self, iodef_rowkey, iodef):
         self.reset()
-        
+
         self.iodef_rowkey = iodef_rowkey
         
         self.md5.update(iodef.SerializeToString())
         self.hash = self.md5.digest()
     
         ii = iodef.Incident[0]
+        
+        #print ii
         
         self.confidence = ii.Assessment[0].Confidence.content
         self.severity = ii.Assessment[0].Impact[0].severity
@@ -164,7 +171,8 @@ class Indexer(object):
             
             if i.category == "malware":
                 print ii
-                
+            
+            
             if self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_addr or self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_net:
                 self.addr = i.content
                 self.rowkey = self.pack_rowkey_ipv4(self.salt.next(), self.addr)
@@ -222,7 +230,25 @@ class Indexer(object):
                         elif i.meaning == 'cc':
                             self.cc = i.content
                 self.commit()
-                                
+            
+            elif self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ext_value:
+                if i.ext_category == "fqdn":
+                    self.fqdn = i.content
+                    self.L("fqdn: " + i.content)
+                    self.rowkey = self.pack_rowkey_fqdn(self.salt.next(), self.fqdn)
+                    for i in ii.EventData[0].Flow[0].System[0].AdditionalData:
+                        if i.meaning == 'prefix':
+                            self.prefix = i.content
+                        elif i.meaning == 'asn':
+                            self.asn = i.content
+                        elif i.meaning == 'asn_desc':
+                            self.asn_desc = i.content
+                        elif i.meaning == 'rir':
+                            self.rir = i.content
+                        elif i.meaning == 'cc':
+                            self.cc = i.content
+                self.commit()
+                    
     def TYPE_IPV4(self):
         return 0
     

@@ -124,7 +124,7 @@ def dump_cif_objs(starttime, endtime):
         
     print count, " rows total."
 
-def dump_infrastructure_botnet():
+def dump_index_botnet():
     """
     To search for ipv4:
        for salt in server_list:
@@ -140,26 +140,32 @@ def dump_infrastructure_botnet():
     if ipv4 is not a prefix, then the row is directly fetched instead of 
     performing a scan
     """
-    print "Dumping infrastructure_botnet"
+    print "Dumping index_botnet"
     connection = HBConnection('localhost')
-    tbl = connection.table('infrastructure_botnet')
+    tbl = connection.table('index_botnet')
     
     count = 0
     
     # key is 2 byte salt + 16 byte address field 
     for key, data in tbl.scan():
         psalt, atype = struct.unpack(">HB", key[:3])
+        
         if atype == 0x0:
             o1, o2, o3, o4 = struct.unpack(">BBBB", key[3:7])
             print ".".join([str(o1), str(o2), str(o3), str(o4)]),
             for cn in ['prefix', 'asn', 'asn_desc','rir', 'cc', 'confidence', 'port', 'proto']:
                 print data['b:' + cn], "|\t", 
             print "\n"
-        elif type == 0x1:
+        elif atype == 0x1:
             print "ipv6"
-        elif type == 0x2:
-            print "fqdn"
-
+        elif atype == 0x2:
+            fqdn_len = struct.unpack(">H", key[3:5])
+            fmt = ">%ds" % fqdn_len
+            fqdn =  struct.unpack(fmt, key[5:])
+            print "fqdn: " + fqdn[0]
+            for cn in ['prefix', 'asn', 'asn_desc','rir', 'cc', 'confidence', 'port', 'proto']:
+                print data['b:' + cn], "|\t", 
+            print "\n"
                 
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'vt:s:e:D:h')
@@ -203,8 +209,8 @@ if table_name == "cif_objs":
 
     dump_cif_objs(starttime, endtime)
     
-if table_name == "infrastructure_botnet":
-    dump_infrastructure_botnet()
+if table_name == "index_botnet":
+    dump_index_botnet()
     
 
 
