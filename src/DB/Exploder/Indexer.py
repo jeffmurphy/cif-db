@@ -89,6 +89,7 @@ class Indexer(object):
         strings up to 32767 allowed
         """
         l = len(str(fqdn))
+        fqdn = fqdn[::-1]  # reversed
         fmt = ">HBH%ds" % l
         return struct.pack(fmt, self.salt.next(), self.TYPE_FQDN(), len(str(fqdn)), str(fqdn)) 
     

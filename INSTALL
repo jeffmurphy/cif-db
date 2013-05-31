@@ -1,4 +1,17 @@
 
+PYTHON  IPy MODULE
+
+   git clone https://github.com/haypo/python-ipy
+   cd python-ipy/
+   sudo python ./setup.py  install
+ 
+PYTHON HAPPYBASE MODULE
+
+   ...
+
+
+
+
 cif-db uses Hadoop/Snappy compression.
 
 APACHE 
@@ -58,5 +71,5 @@ hbase shell
 >  scan 'cif_idl'
   
 should succeed and show that compression is 'SNAPPY'
-  
+ 
   
