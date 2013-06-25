@@ -138,12 +138,7 @@ class Indexer(object):
                                 'b:port': str(self.port),
                                 'b:proto': str(self.proto),
                                 'b:iodef_rowkey': str(self.iodef_rowkey),
-                                'b:' + self.fqdn: str(self.iodef_rowkey)
-                            };
-            
-            # if this is a domain,url,email we may need to merge the row and 
-            # not replace it. fetch first, if we get a hit, merge the two 
-            # rowdicts and re-put() it all
+                            }
             
             self.table.put(self.rowkey, rowdict)
         except Exception as e:
