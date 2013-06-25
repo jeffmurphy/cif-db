@@ -90,6 +90,15 @@ class Query(object):
     that object (the QR) will be placed back into the control message and sent
     back to the client from which it came.
     
+    infra/botnet
+    infra/malware
+    infra/scan
+    domain/botnet
+    domain/malware
+    url/botnet
+    url/malware
+    url/phishing
+    
     <2 byte salt>
         ipv4    = 0x0   (infrastructure/botnet)
         ipv6    = 0x1   (infrastructure/botnet)
@@ -97,7 +106,7 @@ class Query(object):
         url     = 0x3   (url/botnet)
         email   = 0x4   (email/botnet)
         search  = 0x5   (search/botnet)
-        malware = 0x6   (maleware/botnet)
+        malware = 0x6   (malware/botnet)
         asn     = 0x7   (asn/botnet)
     
     so to query for all infra_botnet, thread out for each salt (one thread per salt val) and 
@@ -155,10 +164,25 @@ class Query(object):
                 qrs.baseObjectType.append(bot)
                 qrs.data.append(iodoc)
         
+        if qp[0] == "infrastructure/malware":
+            self.L("Query for infrastructure/malware")
+            
+        if qp[0] == "infrastructure/scan":
+            self.L("Query for infrastructure/scan")
+
+        if qp[0] == "domain/malware":
+            self.L("Query for domain/malware")
+                       
         if qp[0] == "domain/botnet":
             self.L("Query for domain/botnet")
             
-            rowprefix = struct.pack('>HB', 0x1, 0x2) #only scan fqdn types
+            if len(qp) == 2:
+                self.L("    limiter: " + qp[1])
+                fmt = ">HB%ds" % len(qp[1])
+                rowprefix = struct.pack(fmt, 0x1, 0x2, (str(qp[1]))[::-1])
+            else:
+                rowprefix = struct.pack('>HB', 0x1, 0x2) #only scan fqdn types
+                
             for key, value in self.tbl_ibn.scan(row_prefix=rowprefix):
                 iodef_rowkey = value['b:iodef_rowkey']
                 iodef_row = self.tbl_co.row(iodef_rowkey)
@@ -168,6 +192,15 @@ class Query(object):
                 qrs.baseObjectType.append(bot)
                 qrs.data.append(iodoc)
                 
+        if qp[0] == "url/botnet":
+            self.L("Query for url/botnet")
+            
+        if qp[0] == "url/malware":
+            self.L("Query for url/malware")
+            
+        if qp[0] == "url/phishing":
+            self.L("Query for url/phishing")
+            
         qrs.description = "none"
         qrs.ReportTime = "2013-04-01 00:00:00"
 

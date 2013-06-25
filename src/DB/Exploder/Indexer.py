@@ -85,13 +85,12 @@ class Indexer(object):
     
     def pack_rowkey_fqdn(self, salt, fqdn):
         """
-        rowkey: salt (2 bytes) + keytype(0x2=fqdn) + strlen + string
-        strings up to 32767 allowed
+        rowkey: salt (2 bytes) + keytype(0x2=fqdn) + string(first 10 chars)
         """
         l = len(str(fqdn))
         fqdn = fqdn[::-1]  # reversed
-        fmt = ">HBH%ds" % l
-        return struct.pack(fmt, self.salt.next(), self.TYPE_FQDN(), len(str(fqdn)), str(fqdn)) 
+        fmt = ">HB%ds" % l
+        return struct.pack(fmt, self.salt.next(), self.TYPE_FQDN(), str(fqdn)) 
     
     def pack_rowkey_url(self, salt, url):
         return struct.pack(">HBs", self.salt.next(), self.TYPE_URL(), url) 
@@ -125,7 +124,6 @@ class Indexer(object):
         self.hash = None
         self.iodef_rowkey = None
         self.fqdn = None
-        
     
     def commit(self):
         try:
@@ -139,8 +137,14 @@ class Indexer(object):
                                 'b:addr_type': str(self.addr_type),
                                 'b:port': str(self.port),
                                 'b:proto': str(self.proto),
-                                'b:iodef_rowkey': str(self.iodef_rowkey)
+                                'b:iodef_rowkey': str(self.iodef_rowkey),
+                                'b:' + self.fqdn: str(self.iodef_rowkey)
                             };
+            
+            # if this is a domain,url,email we may need to merge the row and 
+            # not replace it. fetch first, if we get a hit, merge the two 
+            # rowdicts and re-put() it all
+            
             self.table.put(self.rowkey, rowdict)
         except Exception as e:
             self.L("failed to put record to %s table: " % self.table_name)

@@ -159,10 +159,11 @@ def dump_index_botnet():
         elif atype == 0x1:
             print "ipv6"
         elif atype == 0x2:
-            fqdn_len = struct.unpack(">H", key[3:5])
+            #fqdn_len = struct.unpack(">H", key[3:5])
+            fqdn_len = len(key) - 2
             fmt = ">%ds" % fqdn_len
-            fqdn =  struct.unpack(fmt, key[5:])
-            print "fqdn: " + fqdn[0]
+            fqdn =  struct.unpack(fmt, key[2:])
+            print "fqdn: " + (fqdn[0])[::-1]
             for cn in ['prefix', 'asn', 'asn_desc','rir', 'cc', 'confidence', 'port', 'proto']:
                 print data['b:' + cn], "|\t", 
             print "\n"

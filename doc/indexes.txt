@@ -1,0 +1,144 @@
+Out of the box queries (based on v1 doc):
+
+    infra/botnet
+    infra/malware
+    infra/scan
+    domain/botnet
+    domain/malware
+    url/botnet
+    url/malware
+    url/phishing
+        
+Indexes are composed of two elements. The primary element is the word before the
+slash. The secondary element is the element after the slash.
+
+E.g. Infrastructure refers to addresses: ipv4, ipv6 as well as netblocks of each.
+Domain refers to DNS names. URL refers to fully specified URLs. 
+
+The full list of out of the box elements indexd as 'primary' are (derived from IODEF):
+
+	ipv4
+	ipv6
+	infrastructure = ipv4,ipv6 (a group/alias)
+	fqdn = an alias for domain
+	url
+	email
+	search = for auditing queries passed to CIF
+	malware
+	asn
+	
+The secondary index gives context. For example, a botnet coordinated at specific addresses,
+or netblocks, would be indexed under infrastructure/botnet or ipv4/botnet (if it was ipv4 only).
+A botnet coordinated using specific domain names (but whose underlying addresses may change)
+would be indexed as domain/botnet or fqdn/botnet.
+
+Adding a custom primary index
+=============================
+
+The primary index is derived from the IODEF document in the 
+		EventData[0].Flow[0].System[0].Node.Address.addr_type
+field. The primary index tells us the mechanism that was used in the incident. For example,
+was the botnet using ipv4 or ipv6? 
+
+To add your own primary index, you would 
+
+1. add your own AddressCategory to the IODEF document.
+2. add an appropriate unpack/pack routine to Indexer.py
+
+When the indexer sees a new AddressCategory it will create the appropriate index.
+
+You are limited to 256 primary indices. The system comes with 8 of those defined out of the box.
+
+Adding a custom secondary index
+===============================
+
+Recap/reminder: The secondary indices are malware, botnet, scan, phishing. These provide context,
+and don't describe how the incident occurred. How it occurred (eg. via DNS or ipv4) is stored
+in the primary index.
+
+The secondary index is derived from the IODEF Assessment/Impact/content document field. To add
+a custom index you would specify an Assessment/Impact type of "other" and place your custom type 
+into the Assessment/Impact/content field (as a string).
+
+Once you've decided on a (unique) index name for the above IODEF element, you would add your index
+to the CIF registry to let CIF know about it (below) so it will be indexed.
+               
+You can have as many secondary indices as you want. The system comes with four defined out of the
+box: botnet, malware, scan, phishing
+
+Registry: Primary Indices
+=========================
+
+Internally, the registry tracks what primary and secondary indices are available:
+
+We track what enum values are assigned to each primary index element, as well as what
+groupnames (aliases) are defined:
+
+        index.primary.ipv4 = 0
+        index.primary.ipv6 = 1
+        index.primary.infrastructure = ipv4,ipv6
+        index.primary.domain = 2
+        index.primary.url = 3
+        index.primary.email = 4
+        index.primary.search = 5
+        index.primary.malware = 6
+        index.primary.asn = 7
+
+The enumerations don't line up with the IODEF specification? It doesn't matter, we refer to the
+IODEF enumerations, internally, by mnemonic and not by value. Additionally, our index will 
+'do the right thing' if it sees the IODEF AddressType contains, for example, ipv4_net ipv4_netmask. 
+There's no need to index them separately from ipv4 itself.
+
+
+Registry: Secondary Indices
+===========================
+
+Reminder/recap: The secondary index corresponds to the ImpactType.
+
+We then track the secondary elements that are defined as follows:
+
+		index.secondary = botnet, malware, scan, phishing
+
+Note these CIF types are all classified as ImpactType = 'other' in the IODEF documents. 
+
+When a client passes a query like "infrastructure/botnet" we break it into each component
+(primary, secondary), lookup the enumeration that corresponds to the primary index, and
+use the secondary index as the index_$NAME
+
+
+Internals
+=========
+
+Internally, the indexes are split into indivual tables (index_botnet, index_malware, etc) rather
+than packing both enumerations into the rowkey. This was somewhat of a potato/potahto decision. 
+I felt, rather than one large table indexing everything, I'd have a few distinct table for each
+contextual type of query defined.
+
+Within an index, there is a rowkey, the rowkey is prefixed with a 2 byte salt in order to avoid
+hot spots in your HBase cluster. The salt is invisible to the end user. Next, the rowkey contains
+the primary index type (e.g 0 for ipv4, 1 for ipv6) as a single byte. 
+
+Finally, for datatypes of known length (eg ipv4, ipv6) the data element is directly packed onto 
+the end of the rowkey. For datatypes of unknown length (eg a domain name) the string is
+packed in reverse() at the end of the rowkey. 
+
+By reversing it, we can quickly search for *.baddomain.com  or *@baddomain.com without having
+to do pattern matching.
+
+
+Email/Domain/Url Rowkey Internals
+=================================
+
+rowkey                cf:foobar    cf:www.foobar cf:foobarbaz cf:customer.foobarbaz
+--------------        ---------    ------------- ------------ ---------------------
+<salt><0x2>moc.raboof <docref>     <docref>      <docref>     <docref>
+
+If we do something like <salt><0x2><strlen>moc.raboof.www we can't rapidly search on "*.foobar.com" because 
+the <strlen> will be 14, but the query term has a length of 10 (foobar.com). So when we construct the "start 
+at rowkey" index, we wind up with a 10 in the length field, and therefor miss the rowkey with the full, 
+14 character, domain. 
+
+Instead we'll just index domains using a fixed prefix (10 characters). So the row "<salt><0x2>moc.raboof" 
+will contain everything we have on, eg, www.foobar.com, foobar.com, fufoobar.com, hacker.123foobar.com 
+and so on, since when they are reversed, they all match "moc.raboof*"
+
