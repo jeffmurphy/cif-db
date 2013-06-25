@@ -126,19 +126,4 @@ By reversing it, we can quickly search for *.baddomain.com  or *@baddomain.com w
 to do pattern matching.
 
 
-Email/Domain/Url Rowkey Internals
-=================================
-
-rowkey                cf:foobar    cf:www.foobar cf:foobarbaz cf:customer.foobarbaz
---------------        ---------    ------------- ------------ ---------------------
-<salt><0x2>moc.raboof <docref>     <docref>      <docref>     <docref>
-
-If we do something like <salt><0x2><strlen>moc.raboof.www we can't rapidly search on "*.foobar.com" because 
-the <strlen> will be 14, but the query term has a length of 10 (foobar.com). So when we construct the "start 
-at rowkey" index, we wind up with a 10 in the length field, and therefor miss the rowkey with the full, 
-14 character, domain. 
-
-Instead we'll just index domains using a fixed prefix (10 characters). So the row "<salt><0x2>moc.raboof" 
-will contain everything we have on, eg, www.foobar.com, foobar.com, fufoobar.com, hacker.123foobar.com 
-and so on, since when they are reversed, they all match "moc.raboof*"
 
