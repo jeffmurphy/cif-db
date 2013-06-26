@@ -137,7 +137,7 @@ class Indexer(object):
                                 'b:addr_type': str(self.addr_type),
                                 'b:port': str(self.port),
                                 'b:proto': str(self.proto),
-                                'b:iodef_rowkey': str(self.iodef_rowkey),
+                                'b:iodef_rowkey': str(self.iodef_rowkey)
                             }
             
             self.table.put(self.rowkey, rowdict)
@@ -166,88 +166,45 @@ class Indexer(object):
         
         # ipv4 addresses and networks
         
-        for i in ii.EventData[0].Flow[0].System[0].Node.Address:
-            self.addr_type = i.category
+        if not hasattr(ii, 'EventData'):
+            print "No flow info?"
             
-            if i.category == "malware":
-                print ii
+        else:
+            for ed in ii.EventData:
+                for fl in ed.Flow:
+                    for sy in fl.System:
+                        for i in sy.Node.Address:
+                            self.addr_type = i.category
+                            
+                            if self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_addr or self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_net:
+                                self.addr = i.content
+                                self.rowkey = self.pack_rowkey_ipv4(self.salt.next(), self.addr)
             
+                                self.commit()
+                                
+                            # ipv6 addresses and networks
+                            
+                            elif self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_addr or self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_net:
+                                self.addr = i.content
+                                self.rowkey = self.pack_rowkey_ipv6(self.salt.next(), self.addr)
             
-            if self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_addr or self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_net:
-                self.addr = i.content
-                self.rowkey = self.pack_rowkey_ipv4(self.salt.next(), self.addr)
-    
-                if 'Port' in ii.EventData[0].Flow[0].System[0].Service:
-                    self.port = ii.EventData[0].Flow[0].System[0].Service.Port
-                if 'ip_proto' in ii.EventData[0].Flow[0].System[0].Service:
-                    self.proto = ii.EventData[0].Flow[0].System[0].Service.ip_protocol
-                    
-                for i in ii.EventData[0].Flow[0].System[0].AdditionalData:
-                        if i.meaning == 'prefix':
-                            self.prefix = i.content
-                        elif i.meaning == 'asn':
-                            self.asn = i.content
-                        elif i.meaning == 'asn_desc':
-                            self.asn_desc = i.content
-                        elif i.meaning == 'rir':
-                            self.rir = i.content
-                        elif i.meaning == 'cc':
-                            self.cc = i.content
-                self.commit()
-                
-            # ipv6 addresses and networks
+                                self.commit()
+                            
+                            elif self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_asn:
+                                self.addr = i.content
+                                self.rowkey = self.pack_rowkey_ipv6(self.salt.next(), self.addr)
             
-            elif self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_addr or self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_net:
-                self.addr = i.content
-                self.rowkey = self.pack_rowkey_ipv6(self.salt.next(), self.addr)
-                
-                for i in ii.EventData[0].Flow[0].System[0].AdditionalData:
-                        if i.meaning == 'prefix':
-                            self.prefix = i.content
-                        elif i.meaning == 'asn':
-                            self.asn = i.content
-                        elif i.meaning == 'asn_desc':
-                            self.asn_desc = i.content
-                        elif i.meaning == 'rir':
-                            self.rir = i.content
-                        elif i.meaning == 'cc':
-                            self.cc = i.content
-                self.commit()
+                                self.commit()
+                            
+                            elif self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ext_value:
+                                if i.ext_category == "fqdn":
+                                    self.fqdn = i.content
+                                    self.rowkey = self.pack_rowkey_fqdn(self.salt.next(), self.fqdn)
             
-            elif self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_asn:
-                self.addr = i.content
-                self.rowkey = self.pack_rowkey_ipv6(self.salt.next(), self.addr)
-                
-                for i in ii.EventData[0].Flow[0].System[0].AdditionalData:
-                        if i.meaning == 'prefix':
-                            self.prefix = i.content
-                        elif i.meaning == 'asn':
-                            self.asn = i.content
-                        elif i.meaning == 'asn_desc':
-                            self.asn_desc = i.content
-                        elif i.meaning == 'rir':
-                            self.rir = i.content
-                        elif i.meaning == 'cc':
-                            self.cc = i.content
-                self.commit()
-            
-            elif self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ext_value:
-                if i.ext_category == "fqdn":
-                    self.fqdn = i.content
-                    self.L("fqdn: " + i.content)
-                    self.rowkey = self.pack_rowkey_fqdn(self.salt.next(), self.fqdn)
-                    for i in ii.EventData[0].Flow[0].System[0].AdditionalData:
-                        if i.meaning == 'prefix':
-                            self.prefix = i.content
-                        elif i.meaning == 'asn':
-                            self.asn = i.content
-                        elif i.meaning == 'asn_desc':
-                            self.asn_desc = i.content
-                        elif i.meaning == 'rir':
-                            self.rir = i.content
-                        elif i.meaning == 'cc':
-                            self.cc = i.content
-                self.commit()
+                                self.commit()
+                                
+                            else:
+                                print "unhandled category: ", i
                     
     def TYPE_IPV4(self):
         return 0
