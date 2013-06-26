@@ -110,33 +110,17 @@ class Indexer(object):
     
     def reset(self):
         self.empty = True
-        self.prefix = None
-        self.asn = None
-        self.asn_desc = None
-        self.rir = None
-        self.cc = None
         self.addr = None
         self.rowkey = None
         self.confidence = None
         self.addr_type = None
-        self.port = None
-        self.proto = None
-        self.hash = None
         self.iodef_rowkey = None
-        self.fqdn = None
     
     def commit(self):
         try:
             rowdict =      {
-                                'b:prefix': str(self.prefix),
-                                'b:asn': str(self.asn),
-                                'b:asn_desc': str(self.asn_desc),
-                                'b:rir': str(self.rir),
-                                'b:cc': str(self.cc),
                                 'b:confidence': str(self.confidence),
                                 'b:addr_type': str(self.addr_type),
-                                'b:port': str(self.port),
-                                'b:proto': str(self.proto),
                                 'b:iodef_rowkey': str(self.iodef_rowkey)
                             }
             
