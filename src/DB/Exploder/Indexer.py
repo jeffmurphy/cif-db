@@ -72,7 +72,7 @@ class Indexer(object):
         if re.match(r'^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$', addr) != None:
             a = addr.split(".")
             b = int(a[0])<<24 | int(a[1])<<16 | int(a[2])<<8 | int(a[3])
-            print "making rowkey for ", self.addr, " int=", b
+            #print "making rowkey for ", self.addr, " int=", b
             return struct.pack(">HBI", self.salt.next(), self.TYPE_IPV4(), b) 
         else:
             raise Exception("Not an ipv4 addr: " + addr)
@@ -93,11 +93,17 @@ class Indexer(object):
         return struct.pack(fmt, self.salt.next(), self.TYPE_FQDN(), str(fqdn)) 
     
     def pack_rowkey_url(self, salt, url):
-        return struct.pack(">HBs", self.salt.next(), self.TYPE_URL(), url) 
+        l = len(str(url))
+        url = url[::-1]  # reversed
+        fmt = ">HB%ds" % l
+        return struct.pack(fmt, self.salt.next(), self.TYPE_URL(), str(url)) 
 
     
     def pack_rowkey_email(self, salt, email):
-        return struct.pack(">HBs", self.salt.next(), self.TYPE_EMAIL(), email) 
+        l = len(str(email))
+        email = email[::-1]  # reversed
+        fmt = ">HB%ds" % l
+        return struct.pack(fmt, self.salt.next(), self.TYPE_URL(), str(email)) 
     
     def pack_rowkey_search(self, salt, search):
         return struct.pack(">HBs", self.salt.next(), self.TYPE_SEARCH(), search) 
@@ -146,14 +152,16 @@ class Indexer(object):
         
         self.confidence = ii.Assessment[0].Confidence.content
         self.severity = ii.Assessment[0].Impact[0].severity
-        #self.addr_type = ii.EventData[0].Flow[0].System[0].Node.Address[0].category
         
         # ipv4 addresses and networks
         
-        if not hasattr(ii, 'EventData'):
+        if len(ii.EventData) == 0 or not hasattr(ii, 'EventData'):
             print "No flow info?"
+            print ii
             
         else:
+            print "We have EventData: ", len(ii.EventData)
+            
             for ed in ii.EventData:
                 for fl in ed.Flow:
                     for sy in fl.System:
@@ -163,7 +171,8 @@ class Indexer(object):
                             if self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_addr or self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv4_net:
                                 self.addr = i.content
                                 self.rowkey = self.pack_rowkey_ipv4(self.salt.next(), self.addr)
-            
+                                self.L("Indexing for ipv4")
+                                
                                 self.commit()
                                 
                             # ipv6 addresses and networks
@@ -171,22 +180,30 @@ class Indexer(object):
                             elif self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_addr or self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ipv6_net:
                                 self.addr = i.content
                                 self.rowkey = self.pack_rowkey_ipv6(self.salt.next(), self.addr)
-            
+                                self.L("Indexing for ipv6")
+                                
                                 self.commit()
                             
                             elif self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_asn:
                                 self.addr = i.content
                                 self.rowkey = self.pack_rowkey_ipv6(self.salt.next(), self.addr)
-            
+                                self.L("Indexing for ASN")
+                                
                                 self.commit()
                             
                             elif self.addr_type == RFC5070_IODEF_v1_pb2.AddressType.Address_category_ext_value:
                                 if i.ext_category == "fqdn":
                                     self.fqdn = i.content
                                     self.rowkey = self.pack_rowkey_fqdn(self.salt.next(), self.fqdn)
-            
-                                self.commit()
-                                
+                                    self.L("Indexing for FQDDN")
+                                    
+                                    self.commit()
+                                elif i.ext_category == "url":
+                                    self.rowkey = self.pack_rowkey_url(self.salt.next(), i.content)
+                                    self.L("Indexing for URL")
+                                    
+                                    self.commit()
+                                    
                             else:
                                 print "unhandled category: ", i
                     

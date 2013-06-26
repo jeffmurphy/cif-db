@@ -93,7 +93,7 @@ class Exploder(object):
                     try:
                         iodef.ParseFromString(obj_data)
 
-                        #print iodef
+                        print "IODEF: ", iodef
                         ii = iodef.Incident[0]
                         table_type = ii.Assessment[0].Impact[0].content.content
                         
@@ -112,7 +112,9 @@ class Exploder(object):
                     except Exception as e:
                         print "Failed to parse restored object: ", e
                         traceback.print_exc()
-
+                else:
+                    print "Contains an unsupported object type: ", contains
+                    
     
             self.setcheckpoint(endts)
             

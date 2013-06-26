@@ -90,10 +90,10 @@ def saveIDL(cif_idl, sr):
     #bot = sr.baseObjectType;
     bot = re.sub('_', '-', sr.baseObjectType)
     fn = cifsupport.installBase() + "/" + bot + ".proto"
-    print "IDL should be: " + fn
+    #print "IDL should be: " + fn
 
 def writeToDb(cif_objs, cif_idl, sr):
-    print "\tWrite message(s) to db: "  + str(sr.baseObjectType)
+    #print "\tWrite message(s) to db: "  + str(sr.baseObjectType)
     ts = int(time.time()) # ignore fractional seconds
     md5 = hashlib.md5()
     md5.update(sr.SerializeToString())
@@ -104,7 +104,7 @@ def writeToDb(cif_objs, cif_idl, sr):
         saveIDL(cif_idl, sr)
         rowid = struct.pack(">HI16s", salt, ts, hash)
         cif_objs.put(rowid, {colspec: sr.data})
-        print "\tput: rowid:" + rowid.encode('hex') + " " + colspec + " "
+        #print "\tput: rowid:" + rowid.encode('hex') + " " + colspec + " "
     except struct.error, err:
         print "Failed to pack rowid: ", err
 
@@ -345,7 +345,7 @@ try:
         
         if apikeys.is_valid(msg.apikey):
             if msg.type == msg_pb2.MessageType.SUBMISSION and len(msg.submissionRequest) > 0:
-                print "Got a SUBMISSION. Saving."
+                #print "Got a SUBMISSION. Saving."
                 for i in range(0, len(msg.submissionRequest)):
                     writeToDb(cif_objs, cif_idl, msg.submissionRequest[i])
             
