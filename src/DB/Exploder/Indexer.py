@@ -106,13 +106,19 @@ class Indexer(object):
         return struct.pack(fmt, self.salt.next(), self.TYPE_URL(), str(email)) 
     
     def pack_rowkey_search(self, salt, search):
-        return struct.pack(">HBs", self.salt.next(), self.TYPE_SEARCH(), search) 
+        l = len(str(search))
+        search = search[::-1]  # reversed
+        fmt = ">HB%ds" % l
+        return struct.pack(fmt, self.salt.next(), self.TYPE_SEARCH(), search) 
     
     def pack_rowkey_malware(self, salt, malware_hash):
-        return struct.pack(">HBs", self.salt.next(), self.TYPE_MALWARE(), malware_hash) 
+        l = len(str(malware_hash))
+        malware_hash = malware_hash[::-1]  # reversed
+        fmt = ">HB%ds" % l
+        return struct.pack(fmt, self.salt.next(), self.TYPE_MALWARE(), str(malware_hash)) 
     
     def pack_rowkey_asn(self, salt, asn):
-        return struct.pack(">HBI", self.salt.next(), self.TYPE_MALWARE(), asn) 
+        return struct.pack(">HBI", self.salt.next(), self.TYPE_ASN(), int(asn)) 
     
     def reset(self):
         self.empty = True
@@ -153,13 +159,22 @@ class Indexer(object):
         self.confidence = ii.Assessment[0].Confidence.content
         self.severity = ii.Assessment[0].Impact[0].severity
         
-        # ipv4 addresses and networks
+        # for malware hashes, they appear at the top level for now
+        # iodef.incident[].additionaldata.meaning = "malware hash"
+        # iodef.incident[].additionaldata.content = "[the hash]"
         
-        if len(ii.EventData) == 0 or not hasattr(ii, 'EventData'):
-            print "No flow info?"
-            print ii
-            
-        else:
+        if hasattr(ii, 'AdditionalData'):
+            print "Has top level AdditionalData"
+            for ed in ii.AdditionalData:
+                #print "ED ", ed
+                if ed.meaning == "malware hash":
+                    self.L("Indexing for malware hash")
+                    self.rowkey = self.pack_rowkey_malware(self.salt.next(), ed.content)
+                    self.commit()
+        
+        # addresses and networks are in the EventData[].Flow[].System[] tree
+        
+        if len(ii.EventData) > 0 or hasattr(ii, 'EventData'):
             print "We have EventData: ", len(ii.EventData)
             
             for ed in ii.EventData:
