@@ -15,7 +15,7 @@ slash. The secondary element is the element after the slash.
 E.g. Infrastructure refers to addresses: ipv4, ipv6 as well as netblocks of each.
 Domain refers to DNS names. URL refers to fully specified URLs. 
 
-The full list of out of the box elements indexd as 'primary' are (derived from IODEF):
+The full list of out of the box elements indexed as 'primary' are (derived from IODEF):
 
 	ipv4
 	ipv6

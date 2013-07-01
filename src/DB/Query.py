@@ -35,7 +35,9 @@ class Query(object):
         self.dbh = happybase.Connection(hbhost)
 
         try:
-            self.tbl_ibn = self.dbh.table('index_botnet')
+            self.index_botnet = self.dbh.table('index_botnet')
+            self.index_malware = self.dbh.table('index_malware')
+
             self.tbl_co = self.dbh.table('cif_objs')
         except Exception as e:
             self.L("failed to open tables")
@@ -155,7 +157,7 @@ class Query(object):
                         stoprow = struct.pack('>HBI', 0x1, 0x0, endaddr)
                         
                 
-            for key, value in self.tbl_ibn.scan(row_start=startrow, row_stop=stoprow):
+            for key, value in self.index_botnet.scan(row_start=startrow, row_stop=stoprow):
                 iodef_rowkey = value['b:iodef_rowkey']
                 iodef_row = self.tbl_co.row(iodef_rowkey)
                 _bot = (iodef_row.keys())[0]
@@ -183,7 +185,7 @@ class Query(object):
             else:
                 rowprefix = struct.pack('>HB', 0x1, 0x2) #only scan fqdn types
                 
-            for key, value in self.tbl_ibn.scan(row_prefix=rowprefix):
+            for key, value in self.index_botnet.scan(row_prefix=rowprefix):
                 iodef_rowkey = value['b:iodef_rowkey']
                 iodef_row = self.tbl_co.row(iodef_rowkey)
                 _bot = (iodef_row.keys())[0]
