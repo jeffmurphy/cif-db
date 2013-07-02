@@ -40,9 +40,10 @@ class Indexer(object):
     columns:
         b:prefix, asn, asn_desc, rir, cc, confidence, addr_type, port, ip_proto
     """
-    def __init__ (self, connection, index_type, num_servers = 1, debug = 0):
+    def __init__ (self, hbhost, index_type, num_servers = 1, debug = 0):
         self.debug = debug
-        self.dbh = connection
+        self.dbh = happybase.Connection(hbhost)
+
         self.num_servers = num_servers
         
         t = self.dbh.tables()
@@ -52,7 +53,7 @@ class Indexer(object):
         if not self.table_name in t:
             self.dbh.create_table(self.table_name, {'b': {'COMPRESSION': 'SNAPPY'}})
             
-        self.table = connection.table(self.table_name).batch(batch_size=5) # FIX increase for prod
+        self.table = self.dbh.table(self.table_name).batch(batch_size=5) # FIX increase for prod
         
         self.reset()
         self.md5 = hashlib.md5()
@@ -93,6 +94,7 @@ class Indexer(object):
         return struct.pack(fmt, self.salt.next(), self.TYPE_FQDN(), str(fqdn)) 
     
     def pack_rowkey_url(self, salt, url):
+#        print "URL is: ", url
         l = len(str(url))
         url = url[::-1]  # reversed
         fmt = ">HB%ds" % l
@@ -164,18 +166,17 @@ class Indexer(object):
         # iodef.incident[].additionaldata.content = "[the hash]"
         
         if hasattr(ii, 'AdditionalData'):
-            print "Has top level AdditionalData"
+            print "\tHas top level AdditionalData"
             for ed in ii.AdditionalData:
                 #print "ED ", ed
                 if ed.meaning == "malware hash":
-                    self.L("Indexing for malware hash")
+                    self.L("\tIndexing for malware hash")
                     self.rowkey = self.pack_rowkey_malware(self.salt.next(), ed.content)
                     self.commit()
         
         # addresses and networks are in the EventData[].Flow[].System[] tree
         
         if len(ii.EventData) > 0 or hasattr(ii, 'EventData'):
-            print "We have EventData: ", len(ii.EventData)
             
             for ed in ii.EventData:
                 for fl in ed.Flow:

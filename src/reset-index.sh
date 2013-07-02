@@ -25,7 +25,7 @@ drop "index_phishing"
 drop "index_scan"
 drop "index_spamvertising"
 drop "index_whitelist"
-put 'registry', 'exploder.checkpoint', 'b:value', '0'
+put 'registry', 'exploder.checkpoint.0', 'b:value', '0'
 EOF
 
 exit 0

@@ -36,6 +36,7 @@ from DB.APIKeys import *
 from DB.Exploder import Exploder
 from DB.Registry import Registry
 from DB.Query import Query
+from DB.Salt import Salt
 
 print "cif-db proof of concept"
 
@@ -92,14 +93,14 @@ def saveIDL(cif_idl, sr):
     fn = cifsupport.installBase() + "/" + bot + ".proto"
     #print "IDL should be: " + fn
 
-def writeToDb(cif_objs, cif_idl, sr):
+def writeToDb(cif_objs, cif_idl, sr, salt):
     #print "\tWrite message(s) to db: "  + str(sr.baseObjectType)
     ts = int(time.time()) # ignore fractional seconds
     md5 = hashlib.md5()
     md5.update(sr.SerializeToString())
     hash = md5.digest()
     colspec = "cf:" + str(sr.baseObjectType)
-    salt = 0xFF00  # FIX
+
     try:
         saveIDL(cif_idl, sr)
         rowid = struct.pack(">HI16s", salt, ts, hash)
@@ -297,7 +298,8 @@ try:
         num_servers = 1
         print "hadoop.num_servers not set. defaulting."
     print "hadoop.num_servers = ", num_servers
-    
+    salt = Salt(num_servers, debug)
+
     global apikeys
     
     print "Initializing APIKeys object"
@@ -332,30 +334,24 @@ try:
     
     time.sleep(1) # wait for router to connect, sort of lame but see this a lot in zmq code
     
-        
     print "Initializing Exploder"
     exploder = Exploder.Exploder(hbhost, False)
-    exploder.do_some_work()
     
     while True:
         msg = msg_pb2.MessageType()
         msg.ParseFromString(subscriber.recv())
-        exploder.do_some_work()
 
         
         if apikeys.is_valid(msg.apikey):
             if msg.type == msg_pb2.MessageType.SUBMISSION and len(msg.submissionRequest) > 0:
                 #print "Got a SUBMISSION. Saving."
                 for i in range(0, len(msg.submissionRequest)):
-                    writeToDb(cif_objs, cif_idl, msg.submissionRequest[i])
+                    writeToDb(cif_objs, cif_idl, msg.submissionRequest[i], salt.next())
             
             # ignore QUERY logic at present, see controlmessagehandler, above, instead
             # we arent processing QUERYs recvd via this PUB/SUB connection 
             elif msg.type == msg_pb2.MessageType.QUERY and len(msg.queryRequest) > 0:
-                print "Got a QUERY. Processing: "
-
-                print "Gathered replies from DB. Sending back to requester. TODO"
-            
+                print "Got an unexected QUERY on PUB/SUB interface"
             else:
                 print "Wrong or empty message recvd on subscriber port. Expected submission or query (" + \
                     str(msg_pb2.MessageType.SUBMISSION) + " or " +                               \

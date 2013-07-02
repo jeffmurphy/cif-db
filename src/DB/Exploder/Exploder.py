@@ -25,25 +25,29 @@ from DB.Registry import Registry
 class Exploder(object):
     def __init__ (self, hbhost, debug):
         self.debug = debug
-        self.dbh = happybase.Connection(hbhost)
-        t = self.dbh.tables()
 
-        self.table = self.dbh.table('infrastructure_botnet')
-        self.kickit = threading.Semaphore(0)
-        self.proc_thread = threading.Thread(target=self.run, name="Exploder daemon", args=())
-        self.proc_thread.daemon = True
-        self.proc_thread.start()
-        
         self.registry = Registry(hbhost, debug)
         self.num_servers = self.registry.get('hadoop.num_servers')
         if self.num_servers == None:
             self.num_servers = 1
+        
+        """
+        We create one exploder thread per hbase server. Each thread has its own
+        hbase connection.  
+        
+        foreach server (1 .. numservers)
+            spawn_exploder_thread(server)
+        """
+        
+        self.workers = []
+        for server in range(0, self.num_servers):
+            thr_title = "Exploder daemon %d of %d" % (server, self.num_servers)
+            worker_thr = threading.Thread(target=self.run, name=thr_title, args=(hbhost, server))
+            self.workers.append(worker_thr)
+            worker_thr.daemon = True
+            worker_thr.start()  
+                      
 
-        self.index_handler = {} # Indexer.Indexer(self.dbh, "botnet", self.num_servers, self.debug)
-        
-        self.salt = Salt(self.num_servers, self.debug)
-        
-        
     def L(self, msg):
         caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])
         if self.debug != None:
@@ -54,24 +58,37 @@ class Exploder(object):
     def do_some_work(self):
         self.kickit.release()
         
-    def getcheckpoint(self):
-        t = self.registry.get('exploder.checkpoint')
+    def getcheckpoint(self, salt):
+        t = self.registry.get('exploder.checkpoint.' + str(salt))
         if t != None:
             return t
         return 0
     
-    def setcheckpoint(self, ts):
-        self.registry.set('exploder.checkpoint', ts)
+    def setcheckpoint(self, salt, ts):
+        self.registry.set('exploder.checkpoint.' + str(salt), ts)
     
-    def run(self):
-        self.L("Exploder running")
+    def run(self, hbhost, salt):
+        """
+        run(salt)
+        
+        this routine scans the cif_obj db for rows starting at
+          "salt" + last checkpoint timestamp
+        and ending at row
+          "salt" + now()
+        
+        each row read in is passed to the Indexer for indexing.
+        """
+        
+        self.L("Exploder thread running for salt: " + str(salt))
+        
+        dbh = happybase.Connection(hbhost)
+
+        index_handler = {} # Indexer.Indexer(self.dbh, "botnet", self.num_servers, self.debug)
         
         while True:
-            self.kickit.acquire() # will block provided kickit is 0
+            co = dbh.table('cif_objs')
             
-            co = self.dbh.table('cif_objs')
-            
-            startts = self.getcheckpoint()
+            startts = self.getcheckpoint(salt)
             endts = int(time.time())
             processed = 0
 
@@ -80,7 +97,6 @@ class Exploder(object):
             if startts == 0:
                 startts = 1
                 
-            salt = 0xFF00  # FIX fix in poc-db at the same time (in writeToDb())
             srowid = struct.pack(">HIIIII", salt, startts-1, 0,0,0,0)
             erowid = struct.pack(">HIIIII", salt, endts, 0,0,0,0)
 
@@ -93,28 +109,28 @@ class Exploder(object):
                     try:
                         iodef.ParseFromString(obj_data)
 
-                        print "IODEF: ", iodef
+                        #print "IODEF: ", iodef
                         ii = iodef.Incident[0]
                         table_type = ii.Assessment[0].Impact[0].content.content
                         
                         self.L("\tIndexing: " + table_type)
-                        
-                        if table_type == "malware":
-                            print ii
                 
-                        if not table_type in self.index_handler:
-                            self.index_handler[table_type] = Indexer.Indexer(self.dbh, table_type, self.num_servers, self.debug)
+                        # check to make sure table_name is in index.secondary
+                        #   index.secondary contains a list of configured/permitted secondary index types
                         
-                        self.index_handler[table_type].extract(key, iodef)
-                        #self.index_handler[table_type].commit()
+                        if not table_type in index_handler:
+                            index_handler[table_type] = Indexer.Indexer(hbhost, table_type, self.num_servers, self.debug)
                         
+                        index_handler[table_type].extract(key, iodef)
+                        processed = processed + 1
 
                     except Exception as e:
                         print "Failed to parse restored object: ", e
                         traceback.print_exc()
                 else:
                     print "Contains an unsupported object type: ", contains
-                    
-    
-            self.setcheckpoint(endts)
+                
+            time.sleep(5)
+            if processed > 0:
+                self.setcheckpoint(salt, endts)
             

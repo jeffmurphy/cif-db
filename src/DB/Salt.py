@@ -24,8 +24,8 @@ class Salt(object):
             
     def next(self):
         self.lock.acquire()
+        self.salt = self.salt + 1
         if self.salt >= self.servers:
             self.salt = 0x0000
-        self.salt = self.salt + 1
         self.lock.release()
         return self.salt
