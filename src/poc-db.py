@@ -180,7 +180,7 @@ def controlMessageHandler(msg):
             msg.src = tmp
             msg.type = control_pb2.ControlType.REPLY
             msg.status = control_pb2.ControlType.SUCCESS
-            print msg
+
             cf.sendmsg(msg, None)
             
         elif msg.command == control_pb2.ControlType.APIKEY_ADD:

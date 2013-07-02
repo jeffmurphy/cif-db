@@ -142,8 +142,8 @@ class Query(object):
             #   pack it into the queryresponse
             # return the queryresponse
             
-            startrow = struct.pack('>HB', 0x1, 0x0) #scan ipv4 and ipv6
-            stoprow = struct.pack('>HB', 0x1, 0x2)
+            startrow = struct.pack('>HB', 0x0, 0x0) #scan ipv4 and ipv6
+            stoprow = struct.pack('>HB', 0x0, 0x2)
             
             if len(qp) == 2:
                 ip = IP(qp[1])
@@ -181,9 +181,9 @@ class Query(object):
             if len(qp) == 2:
                 self.L("    limiter: " + qp[1])
                 fmt = ">HB%ds" % len(qp[1])
-                rowprefix = struct.pack(fmt, 0x1, 0x2, (str(qp[1]))[::-1])
+                rowprefix = struct.pack(fmt, 0x0, 0x2, (str(qp[1]))[::-1])
             else:
-                rowprefix = struct.pack('>HB', 0x1, 0x2) #only scan fqdn types
+                rowprefix = struct.pack('>HB', 0x0, 0x2) #only scan fqdn types
                 
             for key, value in self.index_botnet.scan(row_prefix=rowprefix):
                 iodef_rowkey = value['b:iodef_rowkey']

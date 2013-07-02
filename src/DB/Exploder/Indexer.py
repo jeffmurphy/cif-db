@@ -94,7 +94,6 @@ class Indexer(object):
         return struct.pack(fmt, self.salt.next(), self.TYPE_FQDN(), str(fqdn)) 
     
     def pack_rowkey_url(self, salt, url):
-#        print "URL is: ", url
         l = len(str(url))
         url = url[::-1]  # reversed
         fmt = ">HB%ds" % l
