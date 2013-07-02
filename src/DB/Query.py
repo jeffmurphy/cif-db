@@ -22,6 +22,7 @@ import control_pb2
 import cifsupport
 
 from IPy import IP
+from DB.Registry import Registry
 
 """
 Accept a queryRequest, look inside of it and see what is being 
@@ -32,9 +33,16 @@ a queryResponse object
 class Query(object):
     def __init__ (self, hbhost, debug):
         self.debug = debug
-        self.dbh = happybase.Connection(hbhost)
 
         try:
+            registry = Registry(hbhost, debug)
+            self.num_servers = registry.get('hadoop.num_servers')
+            
+            if self.num_servers == None:
+                self.num_servers = 1
+
+            self.dbh = happybase.Connection(hbhost)
+            
             self.index_botnet = self.dbh.table('index_botnet')
             self.index_malware = self.dbh.table('index_malware')
 
@@ -65,8 +73,7 @@ class Query(object):
             return 0
 
         for i in range(0,4):
-                print "range " + str(i)
-                octs[i] = int(octs[i])
+            octs[i] = int(octs[i])
 
         start = octs[0] << 24 | octs[1] << 16 | octs[2] << 8 | octs[3]
         if len(p) == 2:
@@ -133,39 +140,41 @@ class Query(object):
             # infrastructure/botnet
             self.L("Query for infrastructure/botnet")
             
-            # open the infrastructure_botnet table
-            # foreach entry
-            #   grab the iodef_rowkey value
-            #   open the cif_objs table
-            #   grab the row corresponding to the iodef_rowkey 
-            #   save those all up in a list
-            #   pack it into the queryresponse
-            # return the queryresponse
-            
-            startrow = struct.pack('>HB', 0x0, 0x0) #scan ipv4 and ipv6
-            stoprow = struct.pack('>HB', 0x0, 0x2)
-            
-            if len(qp) == 2:
-                ip = IP(qp[1])
-                self.L("We have an IPv%s scope limiter: %s" % (ip.version(), qp[1]))
-                startaddr, endaddr = self.ipv4_to_start_end_ints(qp[1])
-                if ip.version() == 4:
-                    startrow = struct.pack('>HBI', 0x1, 0x0, ip.int())
-                    if ip.len() == 1:  # no mask given
-                        stoprow = startrow
-                    else:
-                        stoprow = struct.pack('>HBI', 0x1, 0x0, endaddr)
-                        
+            # open the index_botnet table
+            # foreach server in range(0, num_servers)
+            #    startrow = server + ipv4
+            #    endrow = server + ipv6
+            #    foreach row:
+            #       grab iodef_rowkey value
+            #       list_of_iodef_docs <- append iodef document from cif_objs
+            #    pack list_of_iodef_docs into queryresponse
+            #    return the queryresponse
+
+            for server in range(0, self.num_servers):
+                startrow = struct.pack('>HB', server, 0x0) #scan ipv4 and ipv6
+                stoprow = struct.pack('>HB', server, 0x2)
                 
-            for key, value in self.index_botnet.scan(row_start=startrow, row_stop=stoprow):
-                iodef_rowkey = value['b:iodef_rowkey']
-                iodef_row = self.tbl_co.row(iodef_rowkey)
-                _bot = (iodef_row.keys())[0]
-                iodoc = iodef_row[_bot]
-                bot = (_bot.split(":"))[1]
-                qrs.baseObjectType.append(bot)
-                qrs.data.append(iodoc)
-        
+                if len(qp) == 2:
+                    ip = IP(qp[1])
+                    self.L("We have an IPv%s scope limiter: %s" % (ip.version(), qp[1]))
+                    startaddr, endaddr = self.ipv4_to_start_end_ints(qp[1])
+                    if ip.version() == 4:
+                        startrow = struct.pack('>HBI', server, 0x0, ip.int())
+                        if ip.len() == 1:  # no mask given
+                            stoprow = startrow
+                        else:
+                            stoprow = struct.pack('>HBI', server, 0x0, endaddr)
+                            
+                    
+                for key, value in self.index_botnet.scan(row_start=startrow, row_stop=stoprow):
+                    iodef_rowkey = value['b:iodef_rowkey']
+                    iodef_row = self.tbl_co.row(iodef_rowkey)
+                    _bot = (iodef_row.keys())[0]
+                    iodoc = iodef_row[_bot]
+                    bot = (_bot.split(":"))[1]
+                    qrs.baseObjectType.append(bot)
+                    qrs.data.append(iodoc)
+            
         if qp[0] == "infrastructure/malware":
             self.L("Query for infrastructure/malware")
             
@@ -178,22 +187,24 @@ class Query(object):
         if qp[0] == "domain/botnet":
             self.L("Query for domain/botnet")
             
-            if len(qp) == 2:
-                self.L("    limiter: " + qp[1])
-                fmt = ">HB%ds" % len(qp[1])
-                rowprefix = struct.pack(fmt, 0x0, 0x2, (str(qp[1]))[::-1])
-            else:
-                rowprefix = struct.pack('>HB', 0x0, 0x2) #only scan fqdn types
-                
-            for key, value in self.index_botnet.scan(row_prefix=rowprefix):
-                iodef_rowkey = value['b:iodef_rowkey']
-                iodef_row = self.tbl_co.row(iodef_rowkey)
-                _bot = (iodef_row.keys())[0]
-                iodoc = iodef_row[_bot]
-                bot = (_bot.split(":"))[1]
-                qrs.baseObjectType.append(bot)
-                qrs.data.append(iodoc)
-                
+            for server in range(0, self.num_servers):
+
+                if len(qp) == 2:
+                    self.L("    limiter: " + qp[1])
+                    fmt = ">HB%ds" % len(qp[1])
+                    rowprefix = struct.pack(fmt, server, 0x2, (str(qp[1]))[::-1])
+                else:
+                    rowprefix = struct.pack('>HB', server, 0x2) #only scan fqdn types
+                    
+                for key, value in self.index_botnet.scan(row_prefix=rowprefix):
+                    iodef_rowkey = value['b:iodef_rowkey']
+                    iodef_row = self.tbl_co.row(iodef_rowkey)
+                    _bot = (iodef_row.keys())[0]
+                    iodoc = iodef_row[_bot]
+                    bot = (_bot.split(":"))[1]
+                    qrs.baseObjectType.append(bot)
+                    qrs.data.append(iodoc)
+                    
         if qp[0] == "url/botnet":
             self.L("Query for url/botnet")
             
