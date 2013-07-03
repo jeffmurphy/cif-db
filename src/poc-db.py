@@ -37,6 +37,8 @@ from DB.Exploder import Exploder
 from DB.Registry import Registry
 from DB.Query import Query
 from DB.Salt import Salt
+from DB.PrimaryIndex import PrimaryIndex
+from DB.SecondaryIndex import SecondaryIndex
 
 print "cif-db proof of concept"
 
@@ -282,6 +284,8 @@ myip = socket.gethostbyname(socket.gethostname()) # has caveats
 global cf
 global exploder
 global hbhost
+global primary_index
+global secondary_index
 
 try:
     hbhost = "localhost"
@@ -319,6 +323,9 @@ try:
                      'routerid' : "cif-router"
                      })
 
+    primary_index = PrimaryIndex(hbhost, debug)
+    secondary_index = SecondaryIndex(hbhost, debug)
+    
     print "Configuring foundation"
     
     cf.setdebug(debug)

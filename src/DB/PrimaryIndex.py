@@ -28,7 +28,7 @@ class PrimaryIndex(object):
     		return self.enum_to_index[enum]
     	return None
     			
-    def load_primary_index_map():	    
+    def load_primary_index_map(self):	    
 	    for reg_key in self.registry.get():
 	        reg_val = self.registry.get(reg_key)
 	        if re.match('^index.primary.', reg_key):
@@ -36,5 +36,6 @@ class PrimaryIndex(object):
 	                x = re.split('\.', reg_key)
 	                self.index_to_enum[x[2]] = reg_val
 	                self.enum_to_index[reg_val] = x[2]
+
 	    
         
