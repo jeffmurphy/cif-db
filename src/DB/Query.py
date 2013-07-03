@@ -62,7 +62,42 @@ class Query(object):
            print caller + ": " + msg
        else:
            syslog.syslog(caller + ": " + msg)
-           
+    
+    def decode_query(self, qstring):
+        """
+        Given a query string, return a dictionary containing:
+        
+        { 'primary' : [INTEGER COUPLE],
+          'secondary' : STRING,
+          'limiter' : { 'type' : INTEGER, 
+                        'value' : STR
+                        }
+        }
+        
+        eg: (infra = ipv4, ipv6 = 0, 1)
+        
+        infrastructure/botnet
+        
+        { 'primary' : [0,1], 'secondary' : 'botnet', 'limiter' : None }
+        
+        infrastructure/botnet,10.10.0.0/16
+        
+        { 'primary' : [0,1], 'secondary' : 'botnet', 'limiter' : { 'type' : 0, 'value' : '10.10.0.0/16' } }
+        
+        Where 'type', above, is a guess based on the types of things we expect to be queried for:
+        IP addresses, domain names, email addresses, URLs
+        
+        """
+        
+        # this is the infra/botnet,10.10.0.0/16 type case
+        if re.match(r'^[a-z0-9]+/[a-z0-9],', qstring, flags=re.IGNORECASE):
+            qparts = re.split(',', qstring)
+            if len(qparts) > 2:
+                qparts[1] = qparts[1:].join('')
+                del qparts[2:]
+            
+            return
+        
     def setqr(self, qr):
         self.qr = qr
 

@@ -7,28 +7,58 @@ import sys
 from DB.Registry import Registry
 
 class PrimaryIndex(object):
-    def __init__ (self, hbhost, debug):
-        self.debug = debug
+	"""
+	The primary index is the first part of the query string. Eg. "infrastructure" or "url".
+	This corresponds to the third byte of the hbase rowkey. We allow for groups in the
+	primary index. For example,
+	
+	ipv4 = 0
+	ipv6 = 1
+	infrastructure = ipv4,ipv6
+	
+	
+	"""
+	def __init__ (self, hbhost, debug):
+		self.debug = debug
         self.registry = Registry(hbhost, debug)
     	self.index_to_enum = {} # name -> enum
     	self.enum_to_index = {} # enum -> name
     	
     	self.load_primary_index_map()
     	
-    def names(self):
+	def names(self):
+		"""
+    	Return all of the primary index names, including group names.
+    	"""
     	return self.index_to_enum.keys()
     	
-    def enum(self, name):
+	def enum(self, name):
+		"""
+    	Return the enum value(s) for the given primary index name.
+    	This function returns a list. In the case where the given index name
+    	is a group, multiple enum values will be returned.
+    	""" 
+    	enums = []
+
     	if name in self.index_to_enum:
-    		return self.index_to_enum[name]
-    	return None
+    		v = self.index_to_enum[name]
+    		if re.match('^\d+$', v):
+    			enums.append(v)
+    		else:
+    			for innername in re.split(',', v):
+    				enums.append(self.enum(innername.lstrip().rstrip()))
+    			
+    	return enums
     	
-    def name(self, enum):
-    	if enum in self.enum_to_index:
-    		return self.enum_to_index[enum]
+	def name(self, enum):
+		"""
+		Given an index enumeration value, return the name of the index
+		"""
+		if enum in self.enum_to_index:
+			return self.enum_to_index[enum]
     	return None
     			
-    def load_primary_index_map(self):	    
+	def load_primary_index_map(self):	    
 	    for reg_key in self.registry.get():
 	        reg_val = self.registry.get(reg_key)
 	        if re.match('^index.primary.', reg_key):
