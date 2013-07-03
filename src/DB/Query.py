@@ -95,6 +95,10 @@ class Query(object):
             if len(qparts) > 2:
                 qparts[1] = qparts[1:].join('')
                 del qparts[2:]
+            indexparts = re.split('/', qparts[0])
+            if len(indexparts) != 2:
+                raise "Query prefix not in the form of index1/index2"
+            
             
             return
         
