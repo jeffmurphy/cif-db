@@ -32,9 +32,11 @@ a queryResponse object
 """
 
 class Query(object):
-    def __init__ (self, hbhost, debug):
+    def __init__ (self, hbhost, p_index, s_index, debug):
         self.debug = debug
-
+        self.primary_index = p_index
+        self.secondary_index = s_index
+        
         try:
             registry = Registry(hbhost, debug)
             self.num_servers = registry.get('hadoop.num_servers')
@@ -43,16 +45,12 @@ class Query(object):
                 self.num_servers = 1
 
             self.dbh = happybase.Connection(hbhost)
-
-            # FIX. not ideal to have this loaded on every instantiation
-            self.pi_map = self.load_primary_index_map(registry)
-            for pkey in self.pi_map:
-                print 'pi ', self.pi_map[pkey]
                 
             self.index_botnet = self.dbh.table('index_botnet')
             self.index_malware = self.dbh.table('index_malware')
 
             self.tbl_co = self.dbh.table('cif_objs')
+            
         except Exception as e:
             self.L("failed to open tables")
             print e
@@ -67,19 +65,6 @@ class Query(object):
            
     def setqr(self, qr):
         self.qr = qr
-    
-    def load_primary_index_map(self, reg):
-        enum_to_name = {}
-        name_to_enum = {}
-        
-        for reg_key in reg.get():
-            reg_val = reg.get(reg_key)
-            if re.match('^index.primary.', reg_key):
-                if type(reg_val) is int:
-                    x = re.split('\.', reg_key)
-                    enum_to_name[reg_val] = x[2]
-                    
-        return enum_to_name, name_to_enum
 
     def ipv4_to_start_end_ints(self, v4):
         """

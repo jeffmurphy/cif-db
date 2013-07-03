@@ -10,10 +10,9 @@ class SecondaryIndex(object):
     def __init__ (self, hbhost, debug):
         self.debug = debug
         self.registry = Registry(hbhost, debug)
-    	self.index_to_enum = {} # name -> enum
-    	self.enum_to_index = {} # enum -> name
+    	self.names_list = [] # name -> enum
     	
-    	self.load_primary_index_map()
+    	self.load_secondary_index_map()
     	
     def names(self):
     	return self.index_to_enum.keys()
@@ -27,14 +26,13 @@ class SecondaryIndex(object):
     	if enum in self.enum_to_index:
     		return self.enum_to_index[enum]
     	return None
-    			
-    def load_primary_index_map():	    
-	    for reg_key in self.registry.get():
-	        reg_val = self.registry.get(reg_key)
-	        if re.match('^index.primary.', reg_key):
-	            if type(reg_val) is int:
-	                x = re.split('\.', reg_key)
-	                self.index_to_enum[x[2]] = reg_val
-	                self.enum_to_index[reg_val] = x[2]
+    	
+    def load_secondary_index_map(self):
+    	siv = self.registry.get('index.secondary')
+    	if siv != None:
+    		siv_list = []
+    		for i in re.split(',', siv):
+    			siv_list.append(i.lstrip().rstrip())
+		self.names_list = siv_list
 	    
         

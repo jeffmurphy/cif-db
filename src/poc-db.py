@@ -245,7 +245,7 @@ def controlMessageHandler(msg):
             msg.status = control_pb2.ControlType.SUCCESS
 
             for i in range(0, len(msg.queryRequestList.query)):
-                qe = Query(hbhost, True) # TODO move this line outside of this routine
+                qe = Query(hbhost, primary_index, secondary_index, True) # TODO move this line outside of this routine
                 qe.setqr(msg.queryRequestList.query[i])
                 qe.setlimit(msg.queryRequestList.limit)
                 qresponse = qe.execqr()
