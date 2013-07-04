@@ -10,7 +10,7 @@ class SecondaryIndex(object):
     def __init__ (self, hbhost, debug):
         self.debug = debug
         self.registry = Registry(hbhost, debug)
-    	self.names_list = [] # name -> enum
+    	self.names_list = []  # name -> enum
     	
     	self.load_secondary_index_map()
     	
