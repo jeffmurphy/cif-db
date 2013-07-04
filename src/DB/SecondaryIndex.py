@@ -7,32 +7,39 @@ import sys
 from DB.Registry import Registry
 
 class SecondaryIndex(object):
+    """
+    The secondary index is the table name (index_botnet, index_malware) and 
+    corresponds to the second part of the query string. 
+    
+    infrastructure/botnet
+    
+    pri = infrastructure (ipv4 and ipv6)
+    sec = botnet
+    """
     def __init__ (self, hbhost, debug):
         self.debug = debug
         self.registry = Registry(hbhost, debug)
-    	self.names_list = []  # name -> enum
-    	
-    	self.load_secondary_index_map()
-    	
+        self.names_list = []
+        self.names_dict = {}
+        
+        self.load_secondary_index_map()
+
+    def exists(self, name):
+        if name in self.names_dict:
+            return True
+        return False
+
     def names(self):
-    	return self.index_to_enum.keys()
-    	
-    def enum(self, name):
-    	if name in self.index_to_enum:
-    		return self.index_to_enum[name]
-    	return None
-    	
-    def name(self, enum):
-    	if enum in self.enum_to_index:
-    		return self.enum_to_index[enum]
-    	return None
-    	
+        return self.name_list
+
     def load_secondary_index_map(self):
-    	siv = self.registry.get('index.secondary')
-    	if siv != None:
-    		siv_list = []
-    		for i in re.split(',', siv):
-    			siv_list.append(i.lstrip().rstrip())
-		self.names_list = siv_list
-	    
+        siv = self.registry.get('index.secondary')
+        if siv != None:
+            self.names_list = []
+            self.names_dict = {}
+            for i in re.split(',', siv):
+                n = i.lstrip().rstrip()
+                self.names_list.append(n)
+                self.names_dict[n] = 1
+
         

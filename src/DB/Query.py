@@ -89,18 +89,28 @@ class Query(object):
         
         """
         
+        rv = {}
+        
         # this is the infra/botnet,10.10.0.0/16 type case
         if re.match(r'^[a-z0-9]+/[a-z0-9],', qstring, flags=re.IGNORECASE):
             qparts = re.split(',', qstring)
+            
             if len(qparts) > 2:
                 qparts[1] = qparts[1:].join('')
                 del qparts[2:]
+            
             indexparts = re.split('/', qparts[0])
+            
             if len(indexparts) != 2:
                 raise "Query prefix not in the form of index1/index2"
             
-            
-            return
+            pi_enum = self.primary_index.enum(indexparts[0])
+            if len(pi_enum) > 0 and self.secondary_index.exists(indexparts[1]) == True:
+                rv['primary'] = pi_enum
+                rv['secondary'] = indexparts[1]
+                rv['limiter'] = { 'type' : guesstypeof(qparts[1]), 'value' : qparts[1] }
+                return rv
+            return rv
         
     def setqr(self, qr):
         self.qr = qr
