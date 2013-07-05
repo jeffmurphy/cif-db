@@ -24,6 +24,7 @@ import cifsupport
 
 from IPy import IP
 from DB.Registry import Registry
+from urlparse import urlparse
 
 """
 Accept a queryRequest, look inside of it and see what is being 
@@ -91,8 +92,23 @@ class Query(object):
         
         rv = {}
         
-        # this is the infra/botnet,10.10.0.0/16 type case
-        if re.match(r'^[a-z0-9]+/[a-z0-9],', qstring, flags=re.IGNORECASE):
+        if re.match(r'^[a-z0-9]+/[a-z0-9]$', qstring, flags=re.IGNORECASE):
+            # "primary/secondary" only 
+            
+            indexparts = re.split('/', qstring)
+            
+            if len(indexparts) != 2:
+                raise "Query prefix not in the form of index1/index2"
+            
+            pi_enum = self.primary_index.enum(indexparts[0])
+            if len(pi_enum) > 0 and self.secondary_index.exists(indexparts[1]) == True:
+                rv['primary'] = pi_enum
+                rv['secondary'] = indexparts[1]
+                rv['limiter'] = { 'type' : None, 'value' : None }
+        
+        elif re.match(r'^[a-z0-9]+/[a-z0-9]', qstring, flags=re.IGNORECASE):
+            # "primary/secondary,limiter" both specified
+
             qparts = re.split(',', qstring)
             
             if len(qparts) > 2:
@@ -109,9 +125,62 @@ class Query(object):
                 rv['primary'] = pi_enum
                 rv['secondary'] = indexparts[1]
                 rv['limiter'] = { 'type' : guesstypeof(qparts[1]), 'value' : qparts[1] }
-                return rv
-            return rv
         
+        else:
+        
+            # "limiter" only specified
+            
+            rv['primary'] = None
+            rv['secondary'] = None
+            rv['limiter'] = { 'type' : guesstypeof(qstring), 'value' : qstring }
+            
+        return rv
+    
+    def guesstypeof(self, s):
+        """
+        Try to figure out which primary index apply to the given string.
+        ipv4, ipv6, url, email, domain
+        
+        This information is useful when we get a limiter with no pri/sec hints. So 
+        if the query is "10.10.0.0" we want to know that it's an ipv4 address so we can
+        construct the start and stop rowkey appropriately.
+        """
+
+        try:
+            ipv = IP(s).version()
+            if ipv == 4:
+                return self.primary_index.enum('ipv4')
+            if ipv == 6:
+                return self.primary_index.enum('ipv6')
+        except ValueError as e:
+            try:
+                o = urlparse(s)
+                
+                # a hash, eg 10299abe93984f8e8d8e9f
+                if o.scheme == '' and re.match(r'^[0-9a-f]$', o.path, flags=re.IGNORECASE):
+                    return self.primary_index.enum('malware')
+                
+                # an email, blah@example.com
+                if o.scheme == '' and re.match(r'@', o.path):
+                    return self.primary_index.enum('email')
+                
+                # a domainname
+                if o.scheme == '' and re.match(r'^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$', o.path):
+                    return self.primary_index.enum('domain')
+                
+                # a url
+                if o.scheme != '':
+                    return self.primary_index.enum('url')
+                
+                # an asn
+                if o.scheme == '' and re.match(r'^[\d+]$', o.path):
+                    return self.primary_index.enum('asn')
+                
+            finally:
+                return self.primary_index.enum('search')
+
+        return self.primary_index.enum('search')
+    
     def setqr(self, qr):
         self.qr = qr
 
