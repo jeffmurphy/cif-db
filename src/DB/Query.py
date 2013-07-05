@@ -92,7 +92,7 @@ class Query(object):
         
         rv = {}
         
-        if re.match(r'^[a-z0-9]+/[a-z0-9]$', qstring, flags=re.IGNORECASE):
+        if re.match(r'^[a-z0-9]+/[a-z0-9]+$', qstring, flags=re.IGNORECASE):
             # "primary/secondary" only 
             
             indexparts = re.split('/', qstring)
@@ -101,14 +101,16 @@ class Query(object):
                 raise "Query prefix not in the form of index1/index2"
             
             pi_enum = self.primary_index.enum(indexparts[0])
+            if type(pi_enum) is int:
+                pi_enum = [pi_enum]
             if len(pi_enum) > 0 and self.secondary_index.exists(indexparts[1]) == True:
                 rv['primary'] = pi_enum
                 rv['secondary'] = indexparts[1]
                 rv['limiter'] = { 'type' : None, 'value' : None }
-        
-        elif re.match(r'^[a-z0-9]+/[a-z0-9]', qstring, flags=re.IGNORECASE):
+            
+        elif re.match(r'^[a-z0-9]+/[a-z0-9]+,', qstring, flags=re.IGNORECASE):
             # "primary/secondary,limiter" both specified
-
+            
             qparts = re.split(',', qstring)
             
             if len(qparts) > 2:
@@ -122,17 +124,17 @@ class Query(object):
             
             pi_enum = self.primary_index.enum(indexparts[0])
             if len(pi_enum) > 0 and self.secondary_index.exists(indexparts[1]) == True:
+                print "limiter ", qparts[1], " guess ", self.guesstypeof(qparts[1])
                 rv['primary'] = pi_enum
                 rv['secondary'] = indexparts[1]
-                rv['limiter'] = { 'type' : guesstypeof(qparts[1]), 'value' : qparts[1] }
+                rv['limiter'] = { 'type' : self.guesstypeof(qparts[1]), 'value' : qparts[1] }
         
         else:
-        
             # "limiter" only specified
             
             rv['primary'] = None
             rv['secondary'] = None
-            rv['limiter'] = { 'type' : guesstypeof(qstring), 'value' : qstring }
+            rv['limiter'] = { 'type' : self.guesstypeof(qstring), 'value' : qstring }
             
         return rv
     
@@ -155,17 +157,18 @@ class Query(object):
         except ValueError as e:
             try:
                 o = urlparse(s)
-                
+
                 # a hash, eg 10299abe93984f8e8d8e9f
-                if o.scheme == '' and re.match(r'^[0-9a-f]$', o.path, flags=re.IGNORECASE):
+                if o.scheme == '' and re.match(r'^[0-9a-f]+$', o.path, flags=re.IGNORECASE) != None:
+                    print "[returning ", self.primary_index.enum('malware'), "]"
                     return self.primary_index.enum('malware')
                 
                 # an email, blah@example.com
-                if o.scheme == '' and re.match(r'@', o.path):
+                if o.scheme == '' and re.match(r'@', o.path) != None:
                     return self.primary_index.enum('email')
                 
                 # a domainname
-                if o.scheme == '' and re.match(r'^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$', o.path):
+                if o.scheme == '' and re.match(r'^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$', o.path) != None:
                     return self.primary_index.enum('domain')
                 
                 # a url
@@ -173,7 +176,7 @@ class Query(object):
                     return self.primary_index.enum('url')
                 
                 # an asn
-                if o.scheme == '' and re.match(r'^[\d+]$', o.path):
+                if o.scheme == '' and re.match(r'^[\d+]$', o.path) != None:
                     return self.primary_index.enum('asn')
                 
             finally:
@@ -255,6 +258,9 @@ class Query(object):
         self.L("execute query")
         print "query is ", self.qr.query
 
+        decoded_query = self.decode_query(self.qr.query)
+        print "decoded_query ", decoded_query
+        
         qp = self.qr.query.split(',')
         
         qrs = control_pb2.QueryResponse()

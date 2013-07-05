@@ -38,11 +38,10 @@ class PrimaryIndex(object):
 		is a group, multiple enum values will be returned.
     	""" 
 		enums = []
-
 		if name in self.index_to_enum:
 			v = self.index_to_enum[name]
-			if re.match('^\d+$', v):
-				enums.append(v)
+			if type(v) is int:
+				return v
 			else:
 				for innername in re.split(',', v):
 					enums.append(self.enum(innername.lstrip().rstrip()))
@@ -61,7 +60,8 @@ class PrimaryIndex(object):
 		for reg_key in self.registry.get():
 			reg_val = self.registry.get(reg_key)
 			if re.match('^index.primary.', reg_key):
+				x = re.split('\.', reg_key)
+				self.index_to_enum[x[2]] = reg_val
 				if type(reg_val) is int:
-					x = re.split('\.', reg_key)
-					self.index_to_enum[x[2]] = reg_val
 					self.enum_to_index[reg_val] = x[2]
+
