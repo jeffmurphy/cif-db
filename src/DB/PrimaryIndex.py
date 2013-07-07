@@ -31,6 +31,23 @@ class PrimaryIndex(object):
     	"""
 		return self.index_to_enum.keys()
 
+	def reduce_group(self, name):
+		"""
+		If the given name is a group, return [group member names]
+		else return [name]
+		"""
+		if name in self.enum_to_index:
+			v = self.index_to_enum[name]
+			if type(v) is int:
+				return [name]
+		
+		rv = []
+		
+		for innername in re.split(',', self.index_to_enum[name]):
+			rv.append(innername.lstrip().rstrip())
+			
+		return rv
+	
 	def enum(self, name):
 		"""
 		Return the enum value(s) for the given primary index name.

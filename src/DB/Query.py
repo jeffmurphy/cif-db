@@ -69,6 +69,7 @@ class Query(object):
         Given a query string, return a dictionary containing:
         
         { 'primary' : [INTEGER COUPLE],
+          'prinames' : [STRING COUPLE],
           'secondary' : STRING,
           'limiter' : { 'type' : INTEGER, 
                         'value' : STR
@@ -98,13 +99,16 @@ class Query(object):
             indexparts = re.split('/', qstring)
             
             if len(indexparts) != 2:
-                raise "Query prefix not in the form of index1/index2"
+                raise Exception("Query prefix not in the form of index1/index2")
             
             pi_enum = self.primary_index.enum(indexparts[0])
+            
             if type(pi_enum) is int:
-                pi_enum = [pi_enum]
+                pi_enum = [pi_enum]  # primary was not a group, so we only got a single enum back
+                
             if len(pi_enum) > 0 and self.secondary_index.exists(indexparts[1]) == True:
                 rv['primary'] = pi_enum
+                rv['prinames'] = self.primary_index.reduce_group(indexparts[0])
                 rv['secondary'] = indexparts[1]
                 rv['limiter'] = { 'type' : None, 'value' : None }
             
@@ -125,6 +129,7 @@ class Query(object):
             pi_enum = self.primary_index.enum(indexparts[0])
             if len(pi_enum) > 0 and self.secondary_index.exists(indexparts[1]) == True:
                 rv['primary'] = pi_enum
+                rv['prinames'] = self.primary_index.reduce_group(indexparts[0])
                 rv['secondary'] = indexparts[1]
                 rv['limiter'] = { 'type' : self.guesstypeof(qparts[1]), 'value' : qparts[1] }
         
@@ -132,9 +137,15 @@ class Query(object):
             # "limiter" only specified
             
             rv['primary'] = None
+            rv['prinames'] = None
             rv['secondary'] = None
             rv['limiter'] = { 'type' : self.guesstypeof(qstring), 'value' : qstring }
-            
+        
+        # make sure they didn't give us, eg, an email limiter for a ipv4 primary index
+        
+        if rv['primary'] != None and rv['limiter']['type'] != None and not rv['limiter']['type'] in rv['primary']:
+            raise Exception("Limiter mismatched with primary index")
+        
         return rv
     
     def guesstypeof(self, s):
@@ -256,8 +267,19 @@ class Query(object):
         self.L("execute query")
         print "query is ", self.qr.query
 
-        decoded_query = self.decode_query(self.qr.query)
-        print "decoded_query ", decoded_query
+        try:
+            decoded_query = self.decode_query(self.qr.query)
+            print "decoded_query ", decoded_query
+        except Exception as e:
+            print "Failed to decode query: ", e
+            
+        # decoded_query  {'limiter': {'type': 4, 'value': u'email@com.com'}, 'primary': [0, 1], 'secondary': u'malware'}
+        
+        # open table index_$secondary
+        # pack start rowkey
+        # pack stop rowkey
+        # if stop rowkey != none then use scan(start=,stop=)
+        # else use scan(rowprefix=)
         
         qp = self.qr.query.split(',')
         
