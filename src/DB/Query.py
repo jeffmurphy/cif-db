@@ -124,7 +124,6 @@ class Query(object):
             
             pi_enum = self.primary_index.enum(indexparts[0])
             if len(pi_enum) > 0 and self.secondary_index.exists(indexparts[1]) == True:
-                print "limiter ", qparts[1], " guess ", self.guesstypeof(qparts[1]) , " ???"
                 rv['primary'] = pi_enum
                 rv['secondary'] = indexparts[1]
                 rv['limiter'] = { 'type' : self.guesstypeof(qparts[1]), 'value' : qparts[1] }
@@ -160,14 +159,12 @@ class Query(object):
 
                 # a hash, eg 10299abe93984f8e8d8e9f
                 if o.scheme == '' and re.match(r'^[0-9a-f]+$', o.path, flags=re.IGNORECASE) != None:
-                    print "[returning ", self.primary_index.enum('malware'), "]"
                     return self.primary_index.enum('malware')
                 
                 # an email, blah@example.com
-                print "foo ", o
                 if o.scheme == '' and re.search(r'@', o.path) != None:
                     return self.primary_index.enum('email')
-                print "didnt match email"
+
                 # a domainname
                 if o.scheme == '' and re.match(r'^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$', o.path) != None:
                     return self.primary_index.enum('domain')
@@ -181,10 +178,8 @@ class Query(object):
                     return self.primary_index.enum('asn')
                 
             except ValueError as e:
-                print "[exception: default of 5]"
                 return self.primary_index.enum('search')
 
-        print "[returning default of 5]"
         return self.primary_index.enum('search')
     
     def setqr(self, qr):
