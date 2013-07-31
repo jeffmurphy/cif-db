@@ -23,9 +23,14 @@ from DB.Salt import Salt
 from DB.Registry import Registry
 
 class Exploder(object):
-    def __init__ (self, hbhost, debug):
+    def __init__ (self, hbhost, thread_tracker, debug):
         self.debug = debug
 
+        if thread_tracker == None:
+            raise Exception("thread_tracker parameter can not be None")
+        
+        self.thread_tracker = thread_tracker
+        
         self.registry = Registry(hbhost, debug)
         self.num_servers = self.registry.get('hadoop.num_servers')
         if self.num_servers == None:
@@ -45,8 +50,13 @@ class Exploder(object):
             worker_thr = threading.Thread(target=self.run, name=thr_title, args=(hbhost, server))
             self.workers.append(worker_thr)
             worker_thr.daemon = True
-            worker_thr.start()  
-                      
+            print self.thread_tracker
+            worker_thr.start()
+            if not worker_thr.isAlive():
+                print "waiting for exploder/worker thread to become alive"
+                time.sleep(1)
+            self.thread_tracker.add(worker_thr.ident, 'Exploder', 'localhost', 'Running', thr_title)
+        
 
     def L(self, msg):
         caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])

@@ -39,6 +39,7 @@ from DB.Query import Query
 from DB.Salt import Salt
 from DB.PrimaryIndex import PrimaryIndex
 from DB.SecondaryIndex import SecondaryIndex
+from DB.ThreadTracker import ThreadTracker
 
 print "cif-db proof of concept"
 
@@ -286,6 +287,7 @@ global exploder
 global hbhost
 global primary_index
 global secondary_index
+global thread_tracker
 
 try:
     hbhost = "localhost"
@@ -304,6 +306,8 @@ try:
     print "hadoop.num_servers = ", num_servers
     salt = Salt(num_servers, debug)
 
+    thread_tracker = ThreadTracker(debug)
+    
     global apikeys
     
     print "Initializing APIKeys object"
@@ -342,7 +346,7 @@ try:
     time.sleep(1) # wait for router to connect, sort of lame but see this a lot in zmq code
     
     print "Initializing Exploder"
-    exploder = Exploder.Exploder(hbhost, False)
+    exploder = Exploder.Exploder(hbhost, thread_tracker, False)
     
     while True:
         msg = msg_pb2.MessageType()

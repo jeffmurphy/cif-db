@@ -3,7 +3,7 @@ import time
 import os
 import threading
 import zmq
-import sys
+import sys, traceback
 import hashlib
 import re
 
@@ -127,6 +127,7 @@ class Query(object):
                 raise "Query prefix not in the form of index1/index2"
             
             pi_enum = self.primary_index.enum(indexparts[0])
+
             if len(pi_enum) > 0 and self.secondary_index.exists(indexparts[1]) == True:
                 rv['primary'] = pi_enum
                 rv['prinames'] = self.primary_index.reduce_group(indexparts[0])
@@ -270,16 +271,21 @@ class Query(object):
         try:
             decoded_query = self.decode_query(self.qr.query)
             print "decoded_query ", decoded_query
+            
+            # decoded_query  {'limiter': {'type': 4, 'value': u'email@com.com'}, 'primary': [0, 1], 'secondary': u'malware'}
+            # decoded_query  {'limiter': {'type': None, 'value': None}, 'secondary': u'botnet', 'primary': [0, 1], 'prinames': ['ipv4', 'ipv6']}
+            
+            # open table index_$secondary
+            # pack start rowkey
+            # pack stop rowkey
+            # if stop rowkey != none then use scan(start=,stop=)
+            # else use scan(rowprefix=)
+            
         except Exception as e:
             print "Failed to decode query: ", e
+            traceback.print_exc(file=sys.stdout)
             
-        # decoded_query  {'limiter': {'type': 4, 'value': u'email@com.com'}, 'primary': [0, 1], 'secondary': u'malware'}
-        
-        # open table index_$secondary
-        # pack start rowkey
-        # pack stop rowkey
-        # if stop rowkey != none then use scan(start=,stop=)
-        # else use scan(rowprefix=)
+
         
         qp = self.qr.query.split(',')
         

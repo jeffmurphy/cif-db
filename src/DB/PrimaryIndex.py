@@ -36,13 +36,13 @@ class PrimaryIndex(object):
 		If the given name is a group, return [group member names]
 		else return [name]
 		"""
-		if name in self.enum_to_index:
+		if name in self.index_to_enum:
 			v = self.index_to_enum[name]
 			if type(v) is int:
 				return [name]
-		
+
 		rv = []
-		
+
 		for innername in re.split(',', self.index_to_enum[name]):
 			rv.append(innername.lstrip().rstrip())
 			
