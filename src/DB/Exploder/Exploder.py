@@ -50,12 +50,11 @@ class Exploder(object):
             worker_thr = threading.Thread(target=self.run, name=thr_title, args=(hbhost, server))
             self.workers.append(worker_thr)
             worker_thr.daemon = True
-            print self.thread_tracker
             worker_thr.start()
             if not worker_thr.isAlive():
                 print "waiting for exploder/worker thread to become alive"
                 time.sleep(1)
-            self.thread_tracker.add(worker_thr.ident, 'Exploder', 'localhost', 'Running', thr_title)
+            self.thread_tracker.add(id=worker_thr.ident, user='Exploder', host='localhost', state='Running', info=thr_title)
         
 
     def L(self, msg):

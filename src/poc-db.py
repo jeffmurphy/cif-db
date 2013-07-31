@@ -39,7 +39,7 @@ from DB.Query import Query
 from DB.Salt import Salt
 from DB.PrimaryIndex import PrimaryIndex
 from DB.SecondaryIndex import SecondaryIndex
-from DB.ThreadTracker import ThreadTracker
+from CIF.CtrlCommands.ThreadTracker import ThreadTracker
 
 print "cif-db proof of concept"
 
