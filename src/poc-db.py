@@ -324,7 +324,8 @@ try:
                      'cifrouter' : cifrouter,
                      'controlport' : controlport,
                      'myid' : myid,
-                     'routerid' : "cif-router"
+                     'routerid' : "cif-router",
+                     'thread_tracker' : thread_tracker
                      })
 
     primary_index = PrimaryIndex(hbhost, debug)

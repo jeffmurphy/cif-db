@@ -46,7 +46,7 @@ class Exploder(object):
         
         self.workers = []
         for server in range(0, self.num_servers):
-            thr_title = "Exploder daemon %d of %d" % (server, self.num_servers)
+            thr_title = "Exploder daemon %d of %d" % (server, self.num_servers-1)
             worker_thr = threading.Thread(target=self.run, name=thr_title, args=(hbhost, server))
             self.workers.append(worker_thr)
             worker_thr.daemon = True
