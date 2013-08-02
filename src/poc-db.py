@@ -237,6 +237,14 @@ def controlMessageHandler(msg):
                 
             cf.sendmsg(msg, None)
         
+        elif msg.command == control_pb2.ControlType.THREADS_LIST:
+            tmp = msg.dst
+            msg.dst = msg.src
+            msg.src = tmp
+            msg.status = control_pb2.ControlType.SUCCESS
+            thread_tracker.asmessage(msg.listThreadsResponse)
+            cf.sendmsg(msg, None)
+            
         elif msg.command == control_pb2.ControlType.CIF_QUERY_REQUEST:
             qrs = []
             tmp = msg.dst
