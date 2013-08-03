@@ -51,7 +51,7 @@ class Exploder(object):
             self.workers.append(worker_thr)
             worker_thr.daemon = True
             worker_thr.start()
-            if not worker_thr.isAlive():
+            while not worker_thr.isAlive():
                 print "waiting for exploder/worker thread to become alive"
                 time.sleep(1)
             self.thread_tracker.add(id=worker_thr.ident, user='Exploder', host='localhost', state='Running', info=thr_title)

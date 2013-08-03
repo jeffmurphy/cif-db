@@ -265,7 +265,7 @@ def controlMessageHandler(msg):
             msg.queryResponseList.extend(qrs)
             cf.sendmsg(msg, None)
             
-        thread_tracker.remove(id=threading.current_thread().ident)
+        thread_tracker.remove(threading.current_thread().ident)
             
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'c:r:m:D:h')
