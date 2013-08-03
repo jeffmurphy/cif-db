@@ -143,6 +143,9 @@ def controlMessageHandler(msg):
         print "controlMessageHandler: Got a control message: "#, msg
         
     if msg.type == control_pb2.ControlType.COMMAND:
+        thread_tracker.add(id=threading.current_thread().ident, user='Foundation', host='localhost', state='Running', info="controlMessageHandler", 
+                            command=control_pb2._CONTROLTYPE_COMMANDTYPE.values_by_number[msg.command].name)
+
         if msg.command == control_pb2.ControlType.PING:
             c = Ping.makereply(msg)
             cf.sendmsg(c, None)
@@ -261,6 +264,8 @@ def controlMessageHandler(msg):
                 qrs.append(qresponse)
             msg.queryResponseList.extend(qrs)
             cf.sendmsg(msg, None)
+            
+        thread_tracker.remove(id=threading.current_thread().ident)
             
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'c:r:m:D:h')
