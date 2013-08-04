@@ -29,7 +29,7 @@ class PU_ipv4(object):
         The unpacked format is: dot quad string, no leading zeros
         """
         
-        if type(packed) != int:
-            raise Exception("not an integer")
+        if len(packed) != 4:
+            raise Exception("not a 4 byte buffer")
         
         return intToIp(unpack(">I", packed), 4)
