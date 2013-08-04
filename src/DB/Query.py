@@ -39,8 +39,8 @@ class Query(object):
         self.secondary_index = s_index
         
         try:
-            registry = Registry(hbhost, debug)
-            self.num_servers = registry.get('hadoop.num_servers')
+            self.registry = Registry(hbhost, debug)
+            self.num_servers = self.registry.get('hadoop.num_servers')
             
             if self.num_servers == None:
                 self.num_servers = 1
@@ -88,6 +88,11 @@ class Query(object):
         
         Where 'type', above, is a guess based on the types of things we expect to be queried for:
         IP addresses, domain names, email addresses, URLs
+        
+        What can we do with this? We can open the correct secondary index table. We can pack the rowkey
+        based on the primary index. If the primary index is a couple, we set a start and stop rowkey. 
+        If it's only a single value, we use it as a row prefix. If we have a limiter, we pack it based on 
+        its type. 
         
         """
         
@@ -272,18 +277,69 @@ class Query(object):
             decoded_query = self.decode_query(self.qr.query)
             print "decoded_query ", decoded_query
             
-            # decoded_query  {'limiter': {'type': 4, 'value': u'email@com.com'}, 'primary': [0, 1], 'secondary': u'malware'}
-            # decoded_query  {'limiter': {'type': None, 'value': None}, 'secondary': u'botnet', 'primary': [0, 1], 'prinames': ['ipv4', 'ipv6']}
+            # infrastructure/botnet,email@com.com   {'limiter': {'type': 4, 'value': u'email@com.com'}, 'primary': [0, 1], 'secondary': u'malware'}
+            #     result: invalid/mismatched limiter/primary
+            
+            # infrastructure/botnet  {'limiter': {'type': None, 'value': None}, 'secondary': u'botnet', 'primary': [0, 1], 'prinames': ['ipv4', 'ipv6']}
+            #     result: valid, query index_botnet for all ipv4/ipv6 rows
+            
+            # 10.10.0.0/16  {'limiter': {'type': 0, 'value': u'10.10.0.0/16'}, 'secondary': None, 'primary': None, 'prinames': None}
+            #     result: valid, query all secondaries for primary type '0' and pack 10.10.0.0 onto the start and 10.10.255.255 onto the end rowkey
             
             # open table index_$secondary
-            # pack start rowkey
-            # pack stop rowkey
+            #
+            # if len(primary) is 2:
+            #     pack start rowkey using primary[0]
+            #     pack stop rowkey using primary[1]
+            # else
+            #     pack rowprefix using primary[0]
+            #
+            # if we have a limiter, pack it into the end of the rowkey
+            #   len(primary) must be 1 if we have a limiter
+            
             # if stop rowkey != none then use scan(start=,stop=)
             # else use scan(rowprefix=)
             
+            secondaries_to_scan = []
+            if 'secondary' in decoded_query and decoded_query['secondary'] != None:
+                secondaries_to_scan.append(decoded_query['secondary'])
+            else:
+                secondaries = self.registry.get('index.secondary')
+                secondaries_to_scan = re.sub(r'\s*', r'', secondaries).split(',')
+            
+            qrs = control_pb2.QueryResponse()
+            
+            # TODO: spawn a thread for each secondary to scan, coalesce results
+            # TODO: spawn a thread for each salt to scan, coalesce results
+            
+            for server in range(0, self.num_servers-1):
+                for secondary in secondaries_to_scan:
+                    print "scanning salt:", server, " secondary_index: " + secondary
+                    table = self.dbh.table("index_" + secondary)
+                    
+                    if 'primary' in decoded_query:
+                        if decoded_query['primary'] != None:
+                            if len(decoded_query['primary']) == 1:
+                                print "rowprefix case"
+                                
+                                rowprefix = struct.pack('>HB', server, decoded_query['primary'][0])
+
+                                # limiter/type and limiter/value are always present but may be None
+                                if decoded_query['limiter']['type'] != None:
+                                    print "limiter given"
+                                    
+
+                                    
+                            elif len(decoded_query['primary']) == 2:
+                                print "startrow/stoprow case"
+                    elif not 'primary' in decoded_query or decoded_query['primary'] == None:
+                            print "no primary given case"
+                
+                
+            
         except Exception as e:
-            print "Failed to decode query: ", e
-            traceback.print_exc(file=sys.stdout)
+            raise e
+            #traceback.print_exc(file=sys.stdout)
             
 
         
@@ -305,7 +361,7 @@ class Query(object):
             #    pack list_of_iodef_docs into queryresponse
             #    return the queryresponse
 
-            for server in range(0, self.num_servers):
+            for server in range(0, self.num_servers-1):
                 startrow = struct.pack('>HB', server, 0x0) #scan ipv4 and ipv6
                 stoprow = struct.pack('>HB', server, 0x2)
                 

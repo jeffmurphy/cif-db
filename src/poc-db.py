@@ -260,8 +260,13 @@ def controlMessageHandler(msg):
                 qe = Query(hbhost, primary_index, secondary_index, True) # TODO move this line outside of this routine
                 qe.setqr(msg.queryRequestList.query[i])
                 qe.setlimit(msg.queryRequestList.limit)
-                qresponse = qe.execqr()
-                qrs.append(qresponse)
+                try:
+                    qresponse = qe.execqr()
+                    qrs.append(qresponse)
+                except Exception as e:
+                    msg.status = control_pb2.ControlType.FAILED
+                    msg.statusMsg = str(e)
+                    
             msg.queryResponseList.extend(qrs)
             cf.sendmsg(msg, None)
             
