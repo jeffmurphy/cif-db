@@ -312,7 +312,7 @@ class Query(object):
             # TODO: spawn a thread for each secondary to scan, coalesce results
             # TODO: spawn a thread for each salt to scan, coalesce results
             
-            for server in range(0, self.num_servers-1):
+            for server in range(0, self.num_servers):
                 for secondary in secondaries_to_scan:
                     print "scanning salt:", server, " secondary_index: " + secondary
                     table = self.dbh.table("index_" + secondary)
@@ -326,12 +326,15 @@ class Query(object):
 
                                 # limiter/type and limiter/value are always present but may be None
                                 if decoded_query['limiter']['type'] != None:
-                                    print "limiter given"
+                                    print "limiter given of type " + self.primary_index.name(decoded_query['limiter']['type'])
                                     
 
                                     
                             elif len(decoded_query['primary']) == 2:
                                 print "startrow/stoprow case"
+                                if decoded_query['limiter']['type'] != None:
+                                    print "limiter given of type " + self.primary_index.name(decoded_query['limiter']['type'])
+                                    
                     elif not 'primary' in decoded_query or decoded_query['primary'] == None:
                             print "no primary given case"
                 
@@ -361,7 +364,7 @@ class Query(object):
             #    pack list_of_iodef_docs into queryresponse
             #    return the queryresponse
 
-            for server in range(0, self.num_servers-1):
+            for server in range(0, self.num_servers):
                 startrow = struct.pack('>HB', server, 0x0) #scan ipv4 and ipv6
                 stoprow = struct.pack('>HB', server, 0x2)
                 
