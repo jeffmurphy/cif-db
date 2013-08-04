@@ -22,6 +22,7 @@ class PU_ipv4(object):
         
         return struct.pack(">I", IP(unpacked).int())
     
+    @staticmethod
     def unpack(packed):
         """
         The rowkey packed format is: >I (big endian single int)
