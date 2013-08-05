@@ -1,7 +1,7 @@
 import struct
 from IPy import IP, intToIp
 
-class PU_ipv4(object):
+class ipv4(object):
     """
 
     

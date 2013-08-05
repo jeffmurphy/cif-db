@@ -56,7 +56,7 @@ class Query(object):
             self.L("failed to open tables")
             print e
             raise
-        
+
     def L(self, msg):
        caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])
        if self.debug != None:
@@ -132,25 +132,28 @@ class Query(object):
                 raise "Query prefix not in the form of index1/index2"
             
             pi_enum = self.primary_index.enum(indexparts[0])
-
+            limit_enum = self.guesstypeof(qparts[1])
+            
+            # make sure they didn't give us, eg, an email limiter for a ipv4 primary index
+            
+            if not limit_enum in pi_enum:
+                raise Exception("Limiter mismatched with primary index")
+        
+            pi_enum = [limit_enum]
+            
             if len(pi_enum) > 0 and self.secondary_index.exists(indexparts[1]) == True:
                 rv['primary'] = pi_enum
-                rv['prinames'] = self.primary_index.reduce_group(indexparts[0])
+                rv['prinames'] = self.primary_index.name(limit_enum)
                 rv['secondary'] = indexparts[1]
                 rv['limiter'] = { 'type' : self.guesstypeof(qparts[1]), 'value' : qparts[1] }
         
         else:
             # "limiter" only specified
             
-            rv['primary'] = None
-            rv['prinames'] = None
+            rv['primary'] = self.guesstypeof(qstring)
+            rv['prinames'] = self.primary_index.name(self.guesstypeof(qstring))
             rv['secondary'] = None
             rv['limiter'] = { 'type' : self.guesstypeof(qstring), 'value' : qstring }
-        
-        # make sure they didn't give us, eg, an email limiter for a ipv4 primary index
-        
-        if rv['primary'] != None and rv['limiter']['type'] != None and not rv['limiter']['type'] in rv['primary']:
-            raise Exception("Limiter mismatched with primary index")
         
         return rv
     
@@ -317,25 +320,39 @@ class Query(object):
                     print "scanning salt:", server, " secondary_index: " + secondary
                     table = self.dbh.table("index_" + secondary)
                     
-                    if 'primary' in decoded_query:
-                        if decoded_query['primary'] != None:
-                            if len(decoded_query['primary']) == 1:
-                                print "rowprefix case"
+                    if decoded_query['primary'] != None:
+                        if len(decoded_query['primary']) == 1:
+                            print "rowprefix case"
+                            
+                            rowprefix = struct.pack('>HB', server, decoded_query['primary'][0])
+
+                            # limiter/type and limiter/value are always present but may be None
+                            if decoded_query['limiter']['type'] != None:
+                                print "limiter given of type " + self.primary_index.name(decoded_query['limiter']['type'])
                                 
-                                rowprefix = struct.pack('>HB', server, decoded_query['primary'][0])
+                                # from DB.PrimaryIndex.PackUnpack import $limitertype as packer
+                                # packer.pack() ...
+                                
+                                print "loading packer"
+                                
+                                # todo, preload all packers in our __init__ so they are efficiently cached
 
-                                # limiter/type and limiter/value are always present but may be None
-                                if decoded_query['limiter']['type'] != None:
-                                    print "limiter given of type " + self.primary_index.name(decoded_query['limiter']['type'])
-                                    
+                                package='DB.PrimaryIndex.PackUnpack'
+                                modname=self.primary_index.name(decoded_query['limiter']['type'])
+                                __import__(package + "." + modname)
+                                pkg = sys.modules[package + "." + modname]
+                                baseclass = getattr(pkg, modname)
+                                
+                                x = baseclass.pack(decoded_query['limiter']['value'])
+                                print "packed ", x
 
                                     
-                            elif len(decoded_query['primary']) == 2:
-                                print "startrow/stoprow case"
-                                if decoded_query['limiter']['type'] != None:
-                                    print "limiter given of type " + self.primary_index.name(decoded_query['limiter']['type'])
-                                    
-                    elif not 'primary' in decoded_query or decoded_query['primary'] == None:
+                        elif len(decoded_query['primary']) == 2:
+                            print "startrow/stoprow case"
+                            if decoded_query['limiter']['type'] != None:
+                                print "limiter given of type " + self.primary_index.name(decoded_query['limiter']['type'])
+                                
+                    elif decoded_query['primary'] == None:
                             print "no primary given case"
                 
                 
