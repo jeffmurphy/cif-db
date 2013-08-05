@@ -45,8 +45,20 @@ class Query(object):
             if self.num_servers == None:
                 self.num_servers = 1
 
+            self.packers = {}
+            
+            for packer in self.primary_index.names():
+                try:
+                    package='DB.PrimaryIndex.PackUnpack'
+                    self.L("loading packer " + package + "." + packer)
+                    __import__(package + "." + packer)
+                    pkg = sys.modules[package + "." + packer]
+                    self.packers[packer] = getattr(pkg, packer)
+                except ImportError as e:
+                    self.L("warning: failed to load " + packer)
+                                
             self.dbh = happybase.Connection(hbhost)
-                
+            
             self.index_botnet = self.dbh.table('index_botnet')
             self.index_malware = self.dbh.table('index_malware')
 
@@ -329,21 +341,8 @@ class Query(object):
                             # limiter/type and limiter/value are always present but may be None
                             if decoded_query['limiter']['type'] != None:
                                 print "limiter given of type " + self.primary_index.name(decoded_query['limiter']['type'])
-                                
-                                # from DB.PrimaryIndex.PackUnpack import $limitertype as packer
-                                # packer.pack() ...
-                                
-                                print "loading packer"
-                                
-                                # todo, preload all packers in our __init__ so they are efficiently cached
-
-                                package='DB.PrimaryIndex.PackUnpack'
-                                modname=self.primary_index.name(decoded_query['limiter']['type'])
-                                __import__(package + "." + modname)
-                                pkg = sys.modules[package + "." + modname]
-                                baseclass = getattr(pkg, modname)
-                                
-                                x = baseclass.pack(decoded_query['limiter']['value'])
+                                packer = self.primary_index.name(decoded_query['limiter']['type']) # use 'prinames' instead of this lookup
+                                x = self.packers[packer].pack(decoded_query['limiter']['value'])
                                 print "packed ", x
 
                                     
