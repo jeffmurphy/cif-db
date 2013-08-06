@@ -86,7 +86,7 @@ class Indexer(object):
     
     def pack_rowkey_fqdn(self, salt, fqdn):
         """
-        rowkey: salt (2 bytes) + keytype(0x2=fqdn) + string(first 10 chars)
+        rowkey: salt (2 bytes) + keytype(0x2=fqdn) + string(reversed)
         """
         l = len(str(fqdn))
         fqdn = fqdn[::-1]  # reversed

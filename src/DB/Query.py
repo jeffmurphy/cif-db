@@ -285,12 +285,10 @@ class Query(object):
     
     """
     def execqr(self):
-        self.L("execute query")
-        print "query is ", self.qr.query
+        self.L("execute query: " + self.qr.query)
 
         try:
             decoded_query = self.decode_query(self.qr.query)
-            print "decoded_query ", decoded_query
             
             # infrastructure/botnet,email@com.com   {'limiter': {'type': 4, 'value': u'email@com.com'}, 'primary': [0, 1], 'secondary': u'malware'}
             #     result: invalid/mismatched limiter/primary
@@ -327,25 +325,32 @@ class Query(object):
             # TODO: spawn a thread for each secondary to scan, coalesce results
             # TODO: spawn a thread for each salt to scan, coalesce results
             
+            qrs.ReportTime = datetime.datetime.now().isoformat(' ')
+            qrs.description = self.qr.query
+        
             for server in range(0, self.num_servers):
                 for secondary in secondaries_to_scan:
-                    print "scanning salt:", server, " secondary_index: " + secondary
                     table = self.dbh.table("index_" + secondary)
                     
                     if decoded_query['primary'] != None:
                         if len(decoded_query['primary']) == 1:
                             print "rowprefix case"
-                            
                             rowprefix = struct.pack('>HB', server, decoded_query['primary'][0])
 
                             # limiter/type and limiter/value are always present but may be None
                             if decoded_query['limiter']['type'] != None:
-                                print "limiter given of type " + self.primary_index.name(decoded_query['limiter']['type'])
                                 packer = self.primary_index.name(decoded_query['limiter']['type']) # use 'prinames' instead of this lookup
-                                x = self.packers[packer].pack(decoded_query['limiter']['value'])
-                                print "packed ", x
-
-                                    
+                                rowprefix = rowprefix + self.packers[packer].pack(decoded_query['limiter']['value'])
+                            
+                            for key, value in self.index_botnet.scan(row_prefix=rowprefix):
+                                iodef_rowkey = value['b:iodef_rowkey']
+                                iodef_row = self.tbl_co.row(iodef_rowkey)
+                                _bot = (iodef_row.keys())[0]
+                                iodoc = iodef_row[_bot]
+                                bot = (_bot.split(":"))[1]
+                                qrs.baseObjectType.append(bot)
+                                qrs.data.append(iodoc)
+                    
                         elif len(decoded_query['primary']) == 2:
                             print "startrow/stoprow case"
                             if decoded_query['limiter']['type'] != None:
@@ -355,7 +360,8 @@ class Query(object):
                             print "no primary given case"
                 
                 
-            
+            return qrs
+        
         except Exception as e:
             raise e
             #traceback.print_exc(file=sys.stdout)
@@ -394,8 +400,7 @@ class Query(object):
                             stoprow = startrow
                         else:
                             stoprow = struct.pack('>HBI', server, 0x0, endaddr)
-                            
-                    
+
                 for key, value in self.index_botnet.scan(row_start=startrow, row_stop=stoprow):
                     iodef_rowkey = value['b:iodef_rowkey']
                     iodef_row = self.tbl_co.row(iodef_rowkey)
