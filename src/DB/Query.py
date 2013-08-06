@@ -71,7 +71,7 @@ class Query(object):
 
     def L(self, msg):
        caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])
-       if self.debug != None:
+       if self.debug != None and self.debug > 0:
            print caller + ": " + msg
        else:
            syslog.syslog(caller + ": " + msg)
