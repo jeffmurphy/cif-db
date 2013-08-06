@@ -1,7 +1,6 @@
 import struct
-from IPy import IP, intToIp
 
-class ipv4(object):
+class search(object):
     """
 
     
@@ -12,24 +11,17 @@ class ipv4(object):
     @staticmethod
     def pack(unpacked):
         """
-        Given an ipv4 string, pack it so that it can be included in a rowkey
-        The rowkey packed format is: >I (big endian single integer)
+        Given an search (string), pack it so that it can be included in a rowkey
+        The rowkey packed format is: a string
         """
-        ipv = IP(unpacked).version()
-        
-        if ipv != 4:
-            raise Exception("not an ipv4 address")
-        
-        return struct.pack(">I", IP(unpacked).int())
+
+        return unpacked
     
     @staticmethod
     def unpack(packed):
         """
-        The rowkey packed format is: >I (big endian single int)
-        The unpacked format is: dot quad string, no leading zeros
+        The rowkey packed format is: a reversed string
+        The unpacked format is: a string
         """
         
-        if len(packed) != 4:
-            raise Exception("not a 4 byte buffer")
-        
-        return intToIp(unpack(">I", packed), 4)
+        return packed
