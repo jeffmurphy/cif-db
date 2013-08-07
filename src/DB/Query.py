@@ -58,11 +58,8 @@ class Query(object):
                     self.L("warning: failed to load " + packer)
                                 
             self.dbh = happybase.Connection(hbhost)
-            
-            self.index_botnet = self.dbh.table('index_botnet')
-            self.index_malware = self.dbh.table('index_malware')
-
             self.tbl_co = self.dbh.table('cif_objs')
+            self.available_tables = self.dbh.tables()
             
         except Exception as e:
             self.L("failed to open tables")
@@ -335,7 +332,10 @@ class Query(object):
             for server in range(0, self.num_servers):
                 for secondary in secondaries_to_scan:
                     
-                    table = self.dbh.table("index_" + secondary)
+                    table_name = "index_" + secondary
+                    if not table_name in self.available_tables:
+                        continue
+                    table = self.dbh.table(table_name)
                     
                     if decoded_query['primary'] != None:
                         if len(decoded_query['primary']) == 1:
@@ -346,7 +346,7 @@ class Query(object):
                                 packer = self.primary_index.name(decoded_query['limiter']['type']) # use 'prinames' instead of this lookup
                                 rowprefix = rowprefix + self.packers[packer].pack(decoded_query['limiter']['value'])
                             
-                            for key, value in self.index_botnet.scan(row_prefix=rowprefix):
+                            for key, value in table.scan(row_prefix=rowprefix):
                                 iodef_rowkey = value['b:iodef_rowkey']
                                 iodef_row = self.tbl_co.row(iodef_rowkey)
                                 _bot = (iodef_row.keys())[0]
@@ -364,7 +364,7 @@ class Query(object):
                                 print "limiter given of type " + self.primary_index.name(decoded_query['limiter']['type'])
                                 print "we shouldnt get here"
                                 
-                            for key, value in self.index_botnet.scan(row_start=startrow, row_stop=stoprow):
+                            for key, value in table.scan(row_start=startrow, row_stop=stoprow):
                                 iodef_rowkey = value['b:iodef_rowkey']
                                 iodef_row = self.tbl_co.row(iodef_rowkey)
                                 _bot = (iodef_row.keys())[0]
