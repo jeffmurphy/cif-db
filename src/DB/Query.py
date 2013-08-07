@@ -334,7 +334,6 @@ class Query(object):
         
             for server in range(0, self.num_servers):
                 for secondary in secondaries_to_scan:
-                    print "s/s ", server, " / ", secondary
                     
                     table = self.dbh.table("index_" + secondary)
                     
@@ -357,7 +356,6 @@ class Query(object):
                                 qrs.data.append(iodoc)
                     
                         elif len(decoded_query['primary']) == 2:
-                            print "startrow/stoprow case"
                             
                             startrow = struct.pack('>HB', server, decoded_query['primary'][0])
                             stoprow = struct.pack('>HB', server, decoded_query['primary'][1])
