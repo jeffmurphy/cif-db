@@ -15,7 +15,7 @@ class search(object):
         The rowkey packed format is: a string
         """
 
-        return unpacked
+        return str(unpacked)
     
     @staticmethod
     def unpack(packed):
@@ -24,4 +24,5 @@ class search(object):
         The unpacked format is: a string
         """
         
-        return packed
+        return str(packed)
+    

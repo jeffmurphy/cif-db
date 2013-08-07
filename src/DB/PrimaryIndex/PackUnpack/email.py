@@ -15,7 +15,7 @@ class email(object):
         The rowkey packed format is: a reversed string
         """
 
-        return unpacked[::-1]
+        return str(unpacked[::-1])
     
     @staticmethod
     def unpack(packed):
@@ -24,4 +24,5 @@ class email(object):
         The unpacked format is: a string
         """
         
-        return packed[::-1]
+        return str(packed[::-1])
+    

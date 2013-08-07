@@ -17,7 +17,7 @@ class domain(object):
         fqdn = unpacked[::-1]  # reversed
         #fmt = "%ds" % l
         #return struct.pack(fmt, str(fqdn)) 
-        return fqdn
+        return str(fqdn)
     
     @staticmethod
     def unpack(packed):
@@ -26,4 +26,5 @@ class domain(object):
         The unpacked format is: a string
         """
         
-        return packed[::-1]
+        return str(packed[::-1])
+    

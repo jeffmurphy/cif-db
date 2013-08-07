@@ -131,7 +131,7 @@ class Query(object):
             
         elif re.match(r'^[a-z0-9]+/[a-z0-9]+,', qstring, flags=re.IGNORECASE):
             # "primary/secondary,limiter" both specified
-            
+
             qparts = re.split(',', qstring)
             
             if len(qparts) > 2:
@@ -144,6 +144,10 @@ class Query(object):
                 raise "Query prefix not in the form of index1/index2"
             
             pi_enum = self.primary_index.enum(indexparts[0])
+            
+            if type(pi_enum) is int:
+                pi_enum = [pi_enum]  # primary was not a group, so we only got a single enum back
+                
             limit_enum = self.guesstypeof(qparts[1])
             
             # make sure they didn't give us, eg, an email limiter for a ipv4 primary index
@@ -162,7 +166,7 @@ class Query(object):
         else:
             # "limiter" only specified
             
-            rv['primary'] = self.guesstypeof(qstring)
+            rv['primary'] = [self.guesstypeof(qstring)]
             rv['prinames'] = self.primary_index.name(self.guesstypeof(qstring))
             rv['secondary'] = None
             rv['limiter'] = { 'type' : self.guesstypeof(qstring), 'value' : qstring }
@@ -330,11 +334,11 @@ class Query(object):
         
             for server in range(0, self.num_servers):
                 for secondary in secondaries_to_scan:
+                    
                     table = self.dbh.table("index_" + secondary)
                     
                     if decoded_query['primary'] != None:
                         if len(decoded_query['primary']) == 1:
-                            print "rowprefix case"
                             rowprefix = struct.pack('>HB', server, decoded_query['primary'][0])
 
                             # limiter/type and limiter/value are always present but may be None
@@ -363,8 +367,9 @@ class Query(object):
             return qrs
         
         except Exception as e:
+            print e
+            traceback.print_exc(file=sys.stdout)
             raise e
-            #traceback.print_exc(file=sys.stdout)
             
 
         
