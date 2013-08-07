@@ -293,7 +293,7 @@ class Query(object):
 
         try:
             decoded_query = self.decode_query(self.qr.query)
-            
+
             # infrastructure/botnet,email@com.com   {'limiter': {'type': 4, 'value': u'email@com.com'}, 'primary': [0, 1], 'secondary': u'malware'}
             #     result: invalid/mismatched limiter/primary
             
@@ -334,6 +334,7 @@ class Query(object):
         
             for server in range(0, self.num_servers):
                 for secondary in secondaries_to_scan:
+                    print "s/s ", server, " / ", secondary
                     
                     table = self.dbh.table("index_" + secondary)
                     
@@ -376,7 +377,7 @@ class Query(object):
                                 
                     elif decoded_query['primary'] == None:
                             print "no primary given case"
-                
+                            print "we shouldnt get here"
                 
             return qrs
         
@@ -384,91 +385,3 @@ class Query(object):
             print e
             traceback.print_exc(file=sys.stdout)
             raise e
-            
-
-        
-        qp = self.qr.query.split(',')
-        
-        qrs = control_pb2.QueryResponse()
-        
-        if qp[0] == "infrastructure/botnet":
-            # infrastructure/botnet
-            self.L("Query for infrastructure/botnet")
-            
-            # open the index_botnet table
-            # foreach server in range(0, num_servers)
-            #    startrow = server + ipv4
-            #    endrow = server + ipv6
-            #    foreach row:
-            #       grab iodef_rowkey value
-            #       list_of_iodef_docs <- append iodef document from cif_objs
-            #    pack list_of_iodef_docs into queryresponse
-            #    return the queryresponse
-
-            for server in range(0, self.num_servers):
-                startrow = struct.pack('>HB', server, 0x0) #scan ipv4 and ipv6
-                stoprow = struct.pack('>HB', server, 0x2)
-                
-                if len(qp) == 2:
-                    ip = IP(qp[1])
-                    self.L("We have an IPv%s scope limiter: %s" % (ip.version(), qp[1]))
-                    startaddr, endaddr = self.ipv4_to_start_end_ints(qp[1])
-                    if ip.version() == 4:
-                        startrow = struct.pack('>HBI', server, 0x0, ip.int())
-                        if ip.len() == 1:  # no mask given
-                            stoprow = startrow
-                        else:
-                            stoprow = struct.pack('>HBI', server, 0x0, endaddr)
-
-                for key, value in self.index_botnet.scan(row_start=startrow, row_stop=stoprow):
-                    iodef_rowkey = value['b:iodef_rowkey']
-                    iodef_row = self.tbl_co.row(iodef_rowkey)
-                    _bot = (iodef_row.keys())[0]
-                    iodoc = iodef_row[_bot]
-                    bot = (_bot.split(":"))[1]
-                    qrs.baseObjectType.append(bot)
-                    qrs.data.append(iodoc)
-            
-        if qp[0] == "infrastructure/malware":
-            self.L("Query for infrastructure/malware")
-            
-        if qp[0] == "infrastructure/scan":
-            self.L("Query for infrastructure/scan")
-
-        if qp[0] == "domain/malware":
-            self.L("Query for domain/malware")
-                       
-        if qp[0] == "domain/botnet":
-            self.L("Query for domain/botnet")
-            
-            for server in range(0, self.num_servers):
-
-                if len(qp) == 2:
-                    self.L("    limiter: " + qp[1])
-                    fmt = ">HB%ds" % len(qp[1])
-                    rowprefix = struct.pack(fmt, server, 0x2, (str(qp[1]))[::-1])
-                else:
-                    rowprefix = struct.pack('>HB', server, 0x2) #only scan fqdn types
-                    
-                for key, value in self.index_botnet.scan(row_prefix=rowprefix):
-                    iodef_rowkey = value['b:iodef_rowkey']
-                    iodef_row = self.tbl_co.row(iodef_rowkey)
-                    _bot = (iodef_row.keys())[0]
-                    iodoc = iodef_row[_bot]
-                    bot = (_bot.split(":"))[1]
-                    qrs.baseObjectType.append(bot)
-                    qrs.data.append(iodoc)
-                    
-        if qp[0] == "url/botnet":
-            self.L("Query for url/botnet")
-            
-        if qp[0] == "url/malware":
-            self.L("Query for url/malware")
-            
-        if qp[0] == "url/phishing":
-            self.L("Query for url/phishing")
-            
-        qrs.description = "none"
-        qrs.ReportTime = "2013-04-01 00:00:00"
-
-        return qrs
