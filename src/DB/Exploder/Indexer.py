@@ -31,7 +31,18 @@ class Indexer(object):
         self.primary_index = PrimaryIndex(hbhost, debug)
 
         self.num_servers = num_servers
+        self.packers = {}
         
+        for packer in self.primary_index.names():
+            try:
+                package='DB.PrimaryIndex.PackUnpack'
+                self.L("loading packer " + package + "." + packer)
+                __import__(package + "." + packer)
+                pkg = sys.modules[package + "." + packer]
+                self.packers[packer] = getattr(pkg, packer)
+            except ImportError as e:
+                self.L("warning: failed to load " + packer)
+                    
         t = self.dbh.tables()
         
         self.table_name = "index_" + index_type
@@ -53,59 +64,28 @@ class Indexer(object):
             syslog.syslog(caller + ": " + msg)
             
     def pack_rowkey_ipv4(self, salt, addr):
-        """
-        rowkey: salt (2 bytes) + keytype(0x0=ipv4) + packedaddr(4 bytes)
-        """
-        if re.match(r'^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$', addr) != None:
-            a = addr.split(".")
-            b = int(a[0])<<24 | int(a[1])<<16 | int(a[2])<<8 | int(a[3])
-            #print "making rowkey for ", self.addr, " int=", b
-            return struct.pack(">HBI", self.salt.next(), self.TYPE_IPV4(), b) 
-        else:
-            raise Exception("Not an ipv4 addr: " + addr)
-        
+        return struct.pack(">HB", self.salt.next(), self.TYPE_IPV4()) + self.packers['ipv4'].pack(addr)
+
     def pack_rowkey_ipv6(self, salt, addr):
-        """
-        rowkey: salt (2 bytes) + keytype(0x1=ipv6) + packedaddr(16 bytes)
-        """
-        return struct.pack(">HBIIII", self.salt.next(), self.TYPE_IPV6(), self.addr) 
+        return struct.pack(">HB", self.salt.next(), self.TYPE_IPV6()) + self.packers['ipv6'].pack(addr)
     
     def pack_rowkey_fqdn(self, salt, fqdn):
-        """
-        rowkey: salt (2 bytes) + keytype(0x2=fqdn) + string(reversed)
-        """
-        l = len(str(fqdn))
-        fqdn = fqdn[::-1]  # reversed
-        fmt = ">HB%ds" % l
-        return struct.pack(fmt, self.salt.next(), self.TYPE_FQDN(), str(fqdn)) 
+        return struct.pack(">HB", self.salt.next(), self.TYPE_FQDN()) + self.packers['domain'].pack(fqdn)
     
     def pack_rowkey_url(self, salt, url):
-        l = len(str(url))
-        url = url[::-1]  # reversed
-        fmt = ">HB%ds" % l
-        return struct.pack(fmt, self.salt.next(), self.TYPE_URL(), str(url)) 
+        return struct.pack(">HB", self.salt.next(), self.TYPE_URL()) + self.packers['url'].pack(url)
 
-    
     def pack_rowkey_email(self, salt, email):
-        l = len(str(email))
-        email = email[::-1]  # reversed
-        fmt = ">HB%ds" % l
-        return struct.pack(fmt, self.salt.next(), self.TYPE_URL(), str(email)) 
+        return struct.pack(">HB", self.salt.next(), self.TYPE_URL()) + self.packers['email'].pack(email)
     
     def pack_rowkey_search(self, salt, search):
-        l = len(str(search))
-        search = search[::-1]  # reversed
-        fmt = ">HB%ds" % l
-        return struct.pack(fmt, self.salt.next(), self.TYPE_SEARCH(), search) 
+        return struct.pack(">HB", self.salt.next(), self.TYPE_SEARCH()) + self.packers['search'].pack(search) 
     
     def pack_rowkey_malware(self, salt, malware_hash):
-        l = len(str(malware_hash))
-        malware_hash = malware_hash[::-1]  # reversed
-        fmt = ">HB%ds" % l
-        return struct.pack(fmt, self.salt.next(), self.TYPE_MALWARE(), str(malware_hash)) 
+        return struct.pack(">HB", self.salt.next(), self.TYPE_MALWARE()) + self.packers['malware'].pack(malware_hash) 
     
     def pack_rowkey_asn(self, salt, asn):
-        return struct.pack(">HBI", self.salt.next(), self.TYPE_ASN(), int(asn)) 
+        return struct.pack(">HB", self.salt.next(), self.TYPE_ASN()) + self.packers['asn'].pack(asn) 
     
     def reset(self):
         self.empty = True
@@ -202,8 +182,15 @@ class Indexer(object):
                                 elif i.ext_category == "url":
                                     self.rowkey = self.pack_rowkey_url(self.salt.next(), i.content)
                                     self.L("Indexing for URL")
-                                    
-                                    self.commit()
+                                
+                                else:
+                                    e = self.primary_index.enum(i.ext_category)
+                                    if len(e) > 0:
+                                        self.rowkey = struct.pack(">HB", self.salt.next(), e[0]) + self.packers[i.ext_category].pack(i.content) 
+                                    else:
+                                        self.L("Unknown primary index given " + i.ext_category)
+                                        
+                                self.commit()
                                     
                             else:
                                 print "unhandled category: ", i
