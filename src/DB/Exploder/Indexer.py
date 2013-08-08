@@ -106,6 +106,7 @@ class Indexer(object):
             self.table.put(self.rowkey, rowdict)
         except Exception as e:
             self.L("failed to put record to %s table: " % self.table_name)
+            print "rk ", self.rowkey
             print e
         
         self.reset()
@@ -131,7 +132,6 @@ class Indexer(object):
         # iodef.incident[].additionaldata.content = "[the hash]"
         
         if hasattr(ii, 'AdditionalData'):
-            print "\tHas top level AdditionalData"
             for ed in ii.AdditionalData:
                 #print "ED ", ed
                 if ed.meaning == "malware hash":
@@ -179,18 +179,19 @@ class Indexer(object):
                                     self.L("Indexing for FQDDN")
                                     
                                     self.commit()
+                                    
                                 elif i.ext_category == "url":
                                     self.rowkey = self.pack_rowkey_url(self.salt.next(), i.content)
                                     self.L("Indexing for URL")
+                                    self.commit()
                                 
                                 else:
                                     e = self.primary_index.enum(i.ext_category)
                                     if len(e) > 0:
                                         self.rowkey = struct.pack(">HB", self.salt.next(), e[0]) + self.packers[i.ext_category].pack(i.content) 
+                                        self.commit()
                                     else:
                                         self.L("Unknown primary index given " + i.ext_category)
-                                        
-                                self.commit()
                                     
                             else:
                                 print "unhandled category: ", i
