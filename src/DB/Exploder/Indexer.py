@@ -18,31 +18,17 @@ import MAEC_v2_pb2
 import cifsupport
 
 from DB.Salt import Salt
+from DB.PrimaryIndex import PrimaryIndex
 
 class Indexer(object):
     """
-    feeds = infrastructure (addresses), domain, url, email, search, malware
-    rowkey types:
-        ipv4    = 0x0   (infrastructure/botnet)
-        ipv6    = 0x1   (infrastructure/botnet)
-        fqdn    = 0x2   (domain/botnet)
-        url     = 0x3   (url/botnet)
-        email   = 0x4   (email/botnet)
-        search  = 0x5   (search/botnet)
-        malware = 0x6   (maleware/botnet)
-        asn     = 0x7   (asn/botnet)
-        
-    
-    tablename: index_botnet
-    key: salt + address or salt + fqdn
-         address is left padded with nulls into a 16 byte field
-         fqdn is simply appended
-    columns:
-        b:prefix, asn, asn_desc, rir, cc, confidence, addr_type, port, ip_proto
+
+
     """
     def __init__ (self, hbhost, index_type, num_servers = 1, debug = 0):
         self.debug = debug
         self.dbh = happybase.Connection(hbhost)
+        self.primary_index = PrimaryIndex(hbhost, debug)
 
         self.num_servers = num_servers
         
@@ -223,28 +209,28 @@ class Indexer(object):
                                 print "unhandled category: ", i
                     
     def TYPE_IPV4(self):
-        return 0
+        return self.primary_index.enum('ipv4')
     
     def TYPE_IPV6(self):
-        return 1
+        return self.primary_index.enum('ipv6')
     
     def TYPE_FQDN(self):
-        return 2
+        return self.primary_index.enum('domain')
     
     def TYPE_URL(self):
-        return 3
+        return self.primary_index.enum('url')
     
     def TYPE_EMAIL(self):
-        return 4
+        return self.primary_index.enum('email')
     
     def TYPE_SEARCH(self):
-        return 5
+        return self.primary_index.enum('search')
     
     def TYPE_MALWARE(self):
-        return 6
+        return self.primary_index.enum('malware')
     
     def TYPE_ASN(self):
-        return 7
+        return self.primary_index.enum('asn')
     
     
     
