@@ -120,6 +120,8 @@ put 'registry', 'index.primary.infrastructure', 'b:type', 'string'
 put 'registry', 'index.primary.infrastructure', 'b:value', 'ipv4,ipv6'
 put 'registry', 'index.secondary', 'b:type', 'string'
 put 'registry', 'index.secondary', 'b:value', 'botnet, malware, scan, phishing'
+put 'registry', 'index.primary.purge_after', 'b:type', 'string'
+put 'registry', 'index.primary.purge_after', 'b:value', '270d'
 
 
 
