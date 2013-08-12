@@ -126,4 +126,24 @@ By reversing it, we can quickly search for *.baddomain.com  or *@baddomain.com w
 to do pattern matching.
 
 
+Purging
+=======
+
+Purging feeds (and the documents the feeds are derived from) is controlled via registry key:
+
+index.primary.purge_after = 270d
+
+raw documents are stored in cif_objs with rowkey composed of: <salt><timestamp><hash>
+
+Purging cif_objs records is straight-forward: just start with a rowprefix of <salt> and iterate
+until <timestamp> is now()-270d. 
+
+For feeds, it's a bit more complicated. We record the rowid of the cif_obj document we deleted
+in the previous step and then use mapreduce jobs to process all feeds that referenced those
+objects, deleting the feed entries. 
+
+http://hbase.apache.org/book/mapreduce.example.html
+
+
+
 
