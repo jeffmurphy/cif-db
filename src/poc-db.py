@@ -62,7 +62,7 @@ Attach to cif-router ROUTER:
     
 def usage():
     print "\
-    # poc-db [-c 5656] [-r cif-router:5555] [-m name]\n\
+    # poc-db [-c 5656] [-r cif-router:5555] [-H hbase host] [-m name]\n\
     #     -c  control port (REQ - for inbound messages)\n\
     #     -r  cif-router hostname:port\n\
     #     -m  my name\n"
@@ -284,6 +284,7 @@ cifrouter = "sdev.nickelsoft.com:5555"
 myid = "cif-db"
 apikey = "a8fd97c3-9f8b-477b-b45b-ba06719a0088"
 debug = 0
+hbhost = "localhost"
 
 for o, a in opts:
     if o == "-c":
@@ -295,6 +296,8 @@ for o, a in opts:
     elif o == "-h":
         usage()
         sys.exit(2)
+    elif o == "-H":
+        hbhost = a
     elif o == "-D":
         debug = a
 
@@ -308,7 +311,6 @@ global secondary_index
 global thread_tracker
 
 try:
-    hbhost = "localhost"
     
     print "Connect to HBase"
     connection = HBConnection(hbhost)
