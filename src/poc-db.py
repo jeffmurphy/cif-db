@@ -273,7 +273,7 @@ def controlMessageHandler(msg):
         thread_tracker.remove(threading.current_thread().ident)
             
 try:
-    opts, args = getopt.getopt(sys.argv[1:], 'c:r:m:D:h')
+    opts, args = getopt.getopt(sys.argv[1:], 'c:r:m:D:H:h')
 except getopt.GetoptError, err:
     print str(err)
     usage()
