@@ -1,3 +1,73 @@
+Primary Document Storage
+========================
+
+Incoming documents (e.g. IODEF) are stored in cif_objs. The rowkey is
+
+<salt><timestamp><hash(document)>
+
+This allows us to a) avoid hbase hotspots, b) retrieve documents within a timerange 
+(imporant for indexing), c) still have a unique rowkey to reference the document by.
+
+The columns in the table are:
+
+cf:<documenttype>
+cf:<referencedby>
+
+The first column, for example, could be cf:RFC5070_IODEF_v1_pb2 for an IODEF document
+or cf:STIX_v1_pb2 for STIX. This allows us to know the document type so we can 
+re-instantiate it accordingly. 
+
+The second column is used to track who is holding a reference to this document. We
+don't want to purge the document if one of the indexes is still referencing it. This
+is also convenient when we go to purge a feed: we won't purge the underlying document
+until it has been purged from all feeds that refer to it. This allows us to vary 
+the feed purge interval even if the same document lands in multiple feeds.
+
+Feed Generation
+===============
+
+Feeds are generated using a primary/secondary index model. The primary index is the
+datatype(s) found in the document, the secondary index is the classification of the 
+report. 
+
+For example, if you have an IODEF document with Assessment/Impact of "botnet" and 
+the System/Node/Address is IPv4, then the document will be added to the 
+ipv4/botnet feed. As an aside, it will also be in the infrastructure/botnet feed
+because infrastructure is a group composed of IPv4 and IPv6 addresses.
+
+So as documents arrive in the system, they are stored into cif_objs. Those documents
+are (later) parsed and are classified into one of the secondary indexes configured
+(see below). At the same time, we look to see what is being reported: an address,
+a URL, etc. That information is used to index the document into a feed. 
+
+Feed Expiration
+===============
+
+Each feed is configured with an expiration, after which index (feed) entries are
+purged. If no expiration is configured, a global expiration will be used.
+
+Purging feeds (and the documents the feeds are derived from) is controlled via registry key:
+
+index.purge_every = 24h  # when does the purger do its work
+index.purge_after = 7d   # global for all feeds not otherwise specified
+index.infrastructure.botnet.purge_after = 10d 
+
+The purging system will go through each feed and purge anything older than the purge_after
+limit. Since the rowkey for feeds does not contain a timestamp, we need to check every
+feed entry. This is best done periodically using mapreduce. 
+
+The purger periodicity is determined by index.purge_every or index.<pri>.<sec>.purge_every
+
+Entries in the feed found to be older than the purge_after value will be removed from 
+the feed. As we remove documents from the feed, the document entry in cif_objs will be
+updated to remove the feed from the cf:referencedby column. Once all references are
+removed, the cif_obj document is purged. 
+
+
+
+Standard Feeds
+==============
+
 Out of the box queries (based on v1 doc):
 
     infra/botnet
@@ -126,23 +196,6 @@ By reversing it, we can quickly search for *.baddomain.com  or *@baddomain.com w
 to do pattern matching.
 
 
-Purging
-=======
-
-Purging feeds (and the documents the feeds are derived from) is controlled via registry key:
-
-index.primary.purge_after = 270d
-
-raw documents are stored in cif_objs with rowkey composed of: <salt><timestamp><hash>
-
-Purging cif_objs records is straight-forward: just start with a rowprefix of <salt> and iterate
-until <timestamp> is now()-270d. 
-
-For feeds, it's a bit more complicated. We record the rowid of the cif_obj document we deleted
-in the previous step and then use mapreduce jobs to process all feeds that referenced those
-objects, deleting the feed entries. 
-
-http://hbase.apache.org/book/mapreduce.example.html
 
 
 
