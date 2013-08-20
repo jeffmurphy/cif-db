@@ -43,23 +43,24 @@ def tots(dt):
     
 def usage():
     print "\
-    db-scan.py [-t tablename] [-s starttime] [-e endtime]\n\
+    db-scan.py [-t tablename] [-s starttime] [-e endtime] [-H hbhost] [-S salt]\n\
         -t  cif_objs\n\
            -s  start time YYYY-MM-DD-HH-MM-SS (def: start-5mins)\n\
            -e  start time YYYY-MM-DD-HH-MM-SS (def: now)\n\
-        -t  infrastructure_botnet\n\
+        -t  index_botnet\n\
+        -S  salt (server instance, default=0)\n\
+        -H  hbase server (default localhost)\n\
     hour is in 24 hour format\n"
     
 
-def dump_cif_objs(starttime, endtime):
-    salt = 0xFF00
-    srowid = struct.pack(">HIIIII", salt, starttime, 0,0,0,0)
-    erowid = struct.pack(">HIIIII", salt, endtime, 0,0,0,0)
+def dump_cif_objs(hbhost, salt, starttime, endtime):
+    srowid = struct.pack(">HI", salt, int(starttime))
+    erowid = struct.pack(">HI", salt, int(endtime))
     
-    print "start ", hex(salt), srowid.encode('hex') 
+    print "start ", srowid.encode('hex') 
     print "end   ", erowid.encode('hex')
     
-    connection = HBConnection('localhost')
+    connection = HBConnection(hbhost)
     tbl = connection.table('cif_objs')
     
     print "Dumping cif_objs"
@@ -124,7 +125,7 @@ def dump_cif_objs(starttime, endtime):
         
     print count, " rows total."
 
-def dump_index_botnet():
+def dump_index_botnet(hbhost, salt):
     """
     To search for ipv4:
        for salt in server_list:
@@ -141,7 +142,7 @@ def dump_index_botnet():
     performing a scan
     """
     print "Dumping index_botnet"
-    connection = HBConnection('localhost')
+    connection = HBConnection(hbhost)
     tbl = connection.table('index_botnet')
     
     count = 0
@@ -153,8 +154,8 @@ def dump_index_botnet():
         if atype == 0x0:
             o1, o2, o3, o4 = struct.unpack(">BBBB", key[3:7])
             print ".".join([str(o1), str(o2), str(o3), str(o4)]),
-            for cn in ['prefix', 'asn', 'asn_desc','rir', 'cc', 'confidence', 'port', 'proto']:
-                print data['b:' + cn], "|\t", 
+            for cn in ['addr_type', 'confidence']:
+                print data['b:' + cn], " |\t", 
             print "\n"
         elif atype == 0x1:
             print "ipv6"
@@ -163,13 +164,13 @@ def dump_index_botnet():
             fqdn_len = len(key) - 2
             fmt = ">%ds" % fqdn_len
             fqdn =  struct.unpack(fmt, key[2:])
-            print "fqdn: " + (fqdn[0])[::-1]
-            for cn in ['prefix', 'asn', 'asn_desc','rir', 'cc', 'confidence', 'port', 'proto']:
+            print (fqdn[0])[::-1], " |\t", 
+            for cn in ['addr_type', 'confidence']:
                 print data['b:' + cn], "|\t", 
-            print "\n"
+            print 
                 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], 'vt:s:e:D:h')
+    opts, args = getopt.getopt(sys.argv[1:], 'vt:s:e:H:S:D:h')
 except getopt.GetoptError, err:
     print str(err)
     usage()
@@ -180,7 +181,8 @@ starttime = -1
 endtime = -1
 table_name = None
 verbose = False
-
+hbhost = 'localhost'
+givemesalt = 0
 
 for o, a in opts:
     if o == "-t":
@@ -194,6 +196,10 @@ for o, a in opts:
         sys.exit(2)
     elif o == "-v":
         verbose = True
+    elif o == "-S":
+        givemesalt = int(a)
+    elif o == "-H":
+        hbhost = a
     elif o == "-D":
         debug = a
 
@@ -208,10 +214,10 @@ if table_name == "cif_objs":
 
     print "cif_objs: start=", starttime, " end=", endtime
 
-    dump_cif_objs(starttime, endtime)
+    dump_cif_objs(hbhost, givemesalt, starttime, endtime)
     
 if table_name == "index_botnet":
-    dump_index_botnet()
+    dump_index_botnet(hbhost, givemesalt)
     
 
 
