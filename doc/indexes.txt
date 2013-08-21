@@ -6,7 +6,7 @@ Incoming documents (e.g. IODEF) are stored in cif_objs. The rowkey is
 <salt><timestamp><hash(document)>
 
 This allows us to a) avoid hbase hotspots, b) retrieve documents within a timerange 
-(imporant for indexing), c) still have a unique rowkey to reference the document by.
+(important for indexing), c) still have a unique rowkey to reference the document by.
 
 The columns in the table are:
 
@@ -38,7 +38,12 @@ because infrastructure is a group composed of IPv4 and IPv6 addresses.
 So as documents arrive in the system, they are stored into cif_objs. Those documents
 are (later) parsed and are classified into one of the secondary indexes configured
 (see below). At the same time, we look to see what is being reported: an address,
-a URL, etc. That information is used to index the document into a feed. 
+a URL, etc. That information is used in the primary index. The combination of
+primary+secondary results in the feed's name. 
+
+ infrastructure/botnet
+   (primary)   /  (secondary)
+ 
 
 Feed Expiration
 ===============
@@ -54,7 +59,7 @@ index.infrastructure.botnet.purge_after = 10d
 
 The purging system will go through each feed and purge anything older than the purge_after
 limit. Since the rowkey for feeds does not contain a timestamp, we need to check every
-feed entry. This is best done periodically using mapreduce. 
+feed entry's timestamp column. This is best done periodically using mapreduce. 
 
 The purger periodicity is determined by index.purge_every or index.<pri>.<sec>.purge_every
 
@@ -68,7 +73,7 @@ removed, the cif_obj document is purged.
 Standard Feeds
 ==============
 
-Out of the box queries (based on v1 doc):
+Out of the box queries:
 
     infra/botnet
     infra/malware
