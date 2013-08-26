@@ -70,7 +70,9 @@ disable 'index_botnet'
 drop 'index_botnet'
 create 'index_botnet', {NAME => 'b', COMPRESSION => 'SNAPPY'}
 
-
+disable 'log'
+drop 'log'
+create 'log', {NAME => 'b', COMPRESSION => 'SNAPPY'}
 
 
 

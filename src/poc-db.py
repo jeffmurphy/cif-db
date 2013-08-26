@@ -39,6 +39,7 @@ from DB.Query import Query
 from DB.Salt import Salt
 from DB.PrimaryIndex import PrimaryIndex
 from DB.SecondaryIndex import SecondaryIndex
+from DB.Log import Log
 from CIF.CtrlCommands.ThreadTracker import ThreadTracker
 
 print "cif-db proof of concept"
@@ -329,6 +330,9 @@ try:
     thread_tracker = ThreadTracker(debug)
     
     global apikeys
+    
+    log = Log(hbhost, 'localhost', 0)
+    log.L("cif-db initializing")
     
     print "Initializing APIKeys object"
     apikeys = APIKeys(connection, True)
