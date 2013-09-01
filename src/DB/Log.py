@@ -7,8 +7,6 @@ import sys, traceback
 import hashlib
 import re
 
-import struct
-
 import socket
 import happybase
 import struct
@@ -18,9 +16,14 @@ from DB.Salt import Salt
 from DB.Registry import Registry
 
 class Log(object):
-    def __init__ (self, hbhost, myhost, debug):
+    def __init__ (self, hbhost, myhost = None, debug = 0):
         self.debug = debug
-        self.myhost = myhost
+        
+        if myhost != None:
+            self.myhost = myhost
+        else:
+            self.myhost = socket.gethostname()
+            
         self.registry = Registry(hbhost, debug)
         self.num_servers = self.registry.get('hadoop.num_servers')
 

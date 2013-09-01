@@ -36,6 +36,7 @@ from DB.APIKeys import *
 from DB.Exploder import Exploder
 from DB.Registry import Registry
 from DB.Query import Query
+from DB.Purger import Purger
 from DB.Salt import Salt
 from DB.PrimaryIndex import PrimaryIndex
 from DB.SecondaryIndex import SecondaryIndex
@@ -285,6 +286,7 @@ cifrouter = "sdev.nickelsoft.com:5555"
 myid = "cif-db"
 apikey = "a8fd97c3-9f8b-477b-b45b-ba06719a0088"
 debug = 0
+global hbhost
 hbhost = "localhost"
 
 for o, a in opts:
@@ -306,7 +308,6 @@ myip = socket.gethostbyname(socket.gethostname()) # has caveats
 
 global cf
 global exploder
-global hbhost
 global primary_index
 global secondary_index
 global thread_tracker
@@ -331,7 +332,7 @@ try:
     
     global apikeys
     
-    log = Log(hbhost, 'localhost', 0)
+    log = Log(hbhost)
     log.L("cif-db initializing")
     
     print "Initializing APIKeys object"
@@ -372,6 +373,9 @@ try:
     
     print "Initializing Exploder"
     exploder = Exploder.Exploder(hbhost, thread_tracker, False)
+    
+    print "Initializing Purger"
+    purger = Purger.Purger(hbhost, num_servers, thread_tracker, True)
     
     while True:
         msg = msg_pb2.MessageType()

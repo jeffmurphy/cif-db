@@ -16,7 +16,7 @@ class SecondaryIndex(object):
     pri = infrastructure (ipv4 and ipv6)
     sec = botnet
     """
-    def __init__ (self, hbhost, debug):
+    def __init__ (self, hbhost, debug=0):
         self.debug = debug
         self.registry = Registry(hbhost, debug)
         self.names_list = []
