@@ -108,16 +108,32 @@ class Purger(object):
         forever:
             foreach sec: # eg botnet, phishing, whitelist
                 foreach pri: # eg ipv4 ipv6 url
-                    submit purge job(pri/sec, lookup_purge_after(pri/sec))
+                    submit purge job(pri/sec)
                     record pri in a pri_list
-                submit purge job(difference of the sets all_pris and pri_list / sec, lookup_purge_after(pri/sec))
+                submit purge job(difference of the sets all_pris and pri_list / sec)
         """
         dbh = happybase.Connection(hbhost)
+        secondaries = set(self.secondary_index.names())
+        primaries = set(self.primary_index.names())
         
         while True:
+            pri_done = []
+            for sec in secondaries:
+                for pri in primaries:
+                    self.submit_purge_job(pri, sec)
+                    pri_done.append(pri)
+                self.submit_purge_job(primaries - set(pri_done), sec)
+                
             time.sleep(self.purge_every)
+            self.L("Purger awake after " + str(self.purge_every) + " seconds")
             
-            
+    def submit_purge_job(self, pri, sec):
+        """
+        future: submit a MR job
+        current: just iterate
+        """
+        print 
+        
     def L(self, msg):
         caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])
         if self.debug != None:
