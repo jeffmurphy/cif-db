@@ -19,17 +19,19 @@ import cifsupport
 
 from DB.Salt import Salt
 from DB.PrimaryIndex import PrimaryIndex
+from DB.Log import Log
 
 class Indexer(object):
     """
 
 
     """
-    def __init__ (self, hbhost, index_type, num_servers = 1, debug = 0):
+    def __init__ (self, hbhost, index_type, num_servers = 1, table_batch_size = 1000, debug = 0):
         self.debug = debug
         self.dbh = happybase.Connection(hbhost)
         self.primary_index = PrimaryIndex(hbhost, debug)
-
+        self.log = Log(hbhost)
+        
         self.num_servers = num_servers
         self.packers = {}
         
@@ -50,7 +52,8 @@ class Indexer(object):
         if not self.table_name in t:
             self.dbh.create_table(self.table_name, {'b': {'COMPRESSION': 'SNAPPY'}})
             
-        self.table = self.dbh.table(self.table_name).batch(batch_size=5) # FIX increase for prod
+        self.table = self.dbh.table(self.table_name).batch(batch_size=table_batch_size)
+        self.co_table = self.dbh.table("cif_objs").batch(batch_size=table_batch_size)
         
         self.reset()
         self.md5 = hashlib.md5()
@@ -61,7 +64,7 @@ class Indexer(object):
         if self.debug != None:
             print caller + ": " + msg
         else:
-            syslog.syslog(caller + ": " + msg)
+            self.log.L(caller + ": " + msg)
             
     def pack_rowkey_ipv4(self, salt, addr):
         return struct.pack(">HB", self.salt.next(), self.TYPE_IPV4()) + self.packers['ipv4'].pack(addr)
@@ -96,6 +99,14 @@ class Indexer(object):
         self.iodef_rowkey = None
     
     def commit(self):
+        """
+        Commit the record to the index_* table
+        Update cif_objs(rowkey=self.iodef_rowkey) so that 'b:{self.table_name}_{self.rowkey}' = 1
+        Purger will remove the reference when this feed record is purged.
+        
+        With hbase, you can put an addt'l cell value into a table/row without having to 
+        merge. Existing cells won't be affected.
+        """
         try:
             rowdict =      {
                                 'b:confidence': str(self.confidence),
@@ -104,9 +115,14 @@ class Indexer(object):
                             }
             
             self.table.put(self.rowkey, rowdict)
+            
+            self.co_table.put(self.iodef_rowkey, 
+                              {
+                               'b:' + self.table_name + "_" + self.rowkey: 1
+                               })
+            
         except Exception as e:
             self.L("failed to put record to %s table: " % self.table_name)
-            print "rk ", self.rowkey
             print e
         
         self.reset()

@@ -37,6 +37,10 @@ class Exploder(object):
         if self.num_servers == None:
             self.num_servers = 1
         
+        self.batch_size = self.registry.get('hbase.batch_size')
+        if self.batch_size == None:
+            self.batch_size = 1000
+            
         """
         We create one exploder thread per hbase server. Each thread has its own
         hbase connection.  
@@ -129,7 +133,7 @@ class Exploder(object):
                         #   index.secondary contains a list of configured/permitted secondary index types
                         
                         if not table_type in index_handler:
-                            index_handler[table_type] = Indexer.Indexer(hbhost, table_type, self.num_servers, self.debug)
+                            index_handler[table_type] = Indexer.Indexer(hbhost, table_type, self.num_servers, self.batch_size, self.debug)
                         
                         index_handler[table_type].extract(key, iodef)
                         processed = processed + 1

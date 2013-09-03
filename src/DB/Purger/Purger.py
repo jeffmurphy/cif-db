@@ -121,8 +121,9 @@ class Purger(object):
             pri_done = []
             for sec in secondaries:
                 for pri in primaries:
-                    self.submit_purge_job(pri, sec)
-                    pri_done.append(pri)
+                    if self.primary_index.is_group(pri) == False:
+                        self.submit_purge_job(pri, sec)
+                    pri_done.append(pri)  # remove groups too
                 # pri_done is a subset of primaries
                 diff = primaries - set(pri_done)
                 if len(diff) > 0:
@@ -137,7 +138,17 @@ class Purger(object):
         current: just iterate
         """
         print "submit purge: pri=%s sec=%s" % (pri, sec)
-        
+        self.L("begin purge of %s/%s" % (pri, sec))
+        table = self.dbh.table("index_" + sec)
+        for i in range(0, self.num_servers-1):
+            pri_enum = self.primary_index.enum(pri)
+            if pri_enum != None:
+                rowpre = struct.pack(">HB", i, pri_enum)
+                for key, data in tbl.scan(row_prefix=rowpre, include_timestamp=True):
+                    if data[1] < oldest_allowed:
+                        print #remove row
+                        print #remove reference from cif_objs
+            
     def L(self, msg):
         caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])
         if self.debug != None:
