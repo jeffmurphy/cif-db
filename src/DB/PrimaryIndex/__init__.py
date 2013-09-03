@@ -31,6 +31,16 @@ class PrimaryIndex(object):
     	"""
 		return self.index_to_enum.keys()
 
+	def is_group(self, name):
+		"""
+		If the given name is a group, return True else False
+		"""
+		if name in self.index_to_enum:
+			v = self.index_to_enum[name]
+			if type(v) is not int:
+				return True
+		return False
+	
 	def reduce_group(self, name):
 		"""
 		If the given name is a group, return [group member names]

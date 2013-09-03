@@ -30,7 +30,7 @@ class SecondaryIndex(object):
         return False
 
     def names(self):
-        return self.name_list
+        return self.names_list
 
     def load_secondary_index_map(self):
         siv = self.registry.get('index.secondary')

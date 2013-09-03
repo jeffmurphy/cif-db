@@ -7,6 +7,7 @@ import threading
 import happybase
 import struct
 import hashlib
+import socket
 
 from DB.Salt import Salt
 from DB.Registry import Registry
@@ -81,7 +82,7 @@ class Purger(object):
                 print "waiting for purger/worker thread to become alive"
                 time.sleep(1)
             self.L(thr_title)
-            self.thread_tracker.add(id=worker_thr.ident, user='Exploder', host='localhost', state='Running', info=thr_title)
+            self.thread_tracker.add(id=worker_thr.ident, user='Purger', host=socket.gethostname(), state='Running', info=thr_title)
         
     def expand_timespec(self, tspec):
         """
@@ -122,7 +123,10 @@ class Purger(object):
                 for pri in primaries:
                     self.submit_purge_job(pri, sec)
                     pri_done.append(pri)
-                self.submit_purge_job(primaries - set(pri_done), sec)
+                # pri_done is a subset of primaries
+                diff = primaries - set(pri_done)
+                if len(diff) > 0:
+                    self.submit_purge_job(diff, sec)
                 
             time.sleep(self.purge_every)
             self.L("Purger awake after " + str(self.purge_every) + " seconds")
@@ -132,7 +136,7 @@ class Purger(object):
         future: submit a MR job
         current: just iterate
         """
-        print 
+        print "submit purge: pri=%s sec=%s" % (pri, sec)
         
     def L(self, msg):
         caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])

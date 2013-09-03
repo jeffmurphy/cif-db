@@ -5,7 +5,7 @@ import sys
 import zmq
 import random
 import time
-import os
+import os, pwd
 import datetime
 import json
 import getopt
@@ -145,7 +145,7 @@ def controlMessageHandler(msg):
         print "controlMessageHandler: Got a control message: "#, msg
         
     if msg.type == control_pb2.ControlType.COMMAND:
-        thread_tracker.add(id=threading.current_thread().ident, user='Foundation', host='localhost', state='Running', info="controlMessageHandler", 
+        thread_tracker.add(id=threading.current_thread().ident, user=pwd.getpwuid(os.getuid())[0], host=socket.gethostname(), state='Running', info="controlMessageHandler", 
                             command=control_pb2._CONTROLTYPE_COMMANDTYPE.values_by_number[msg.command].name)
 
         if msg.command == control_pb2.ControlType.PING:

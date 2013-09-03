@@ -8,6 +8,7 @@ import socket
 import happybase
 import struct
 import traceback
+import socket
 
 sys.path.append('/usr/local/lib/cif-protocol/pb-python/gen-py')
 
@@ -54,7 +55,7 @@ class Exploder(object):
             while not worker_thr.isAlive():
                 print "waiting for exploder/worker thread to become alive"
                 time.sleep(1)
-            self.thread_tracker.add(id=worker_thr.ident, user='Exploder', host='localhost', state='Running', info=thr_title)
+            self.thread_tracker.add(id=worker_thr.ident, user='Exploder', host=socket.gethostname(), state='Running', info=thr_title)
         
 
     def L(self, msg):
