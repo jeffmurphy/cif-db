@@ -51,7 +51,7 @@ class Purger(object):
         
         self.thread_tracker = thread_tracker
         self.registry = Registry(hbhost, debug)
-
+        
         self.primary_index = PrimaryIndex(hbhost)
         self.secondary_index = SecondaryIndex(hbhost)
         
@@ -88,7 +88,6 @@ class Purger(object):
         """
         accepts: \d[dwh] and returns seconds
         """
-        print "tspec ", tspec
         if tspec == None:
             return None
         m = re.match(r"^(\d+)([dwh])$", tspec)
@@ -116,39 +115,63 @@ class Purger(object):
         dbh = happybase.Connection(hbhost)
         secondaries = set(self.secondary_index.names())
         primaries = set(self.primary_index.names())
-        
+        dbh = happybase.Connection(hbhost)
+
         while True:
             pri_done = []
             for sec in secondaries:
                 for pri in primaries:
                     if self.primary_index.is_group(pri) == False:
-                        self.submit_purge_job(pri, sec)
+                        self.submit_purge_job(dbh, pri, sec)
                     pri_done.append(pri)  # remove groups too
                 # pri_done is a subset of primaries
                 diff = primaries - set(pri_done)
                 if len(diff) > 0:
-                    self.submit_purge_job(diff, sec)
+                    self.submit_purge_job(dbh, diff, sec)
                 
             time.sleep(self.purge_every)
             self.L("Purger awake after " + str(self.purge_every) + " seconds")
             
-    def submit_purge_job(self, pri, sec):
+    def submit_purge_job(self, dbh, pri, sec):
         """
         future: submit a MR job
         current: just iterate
         """
         print "submit purge: pri=%s sec=%s" % (pri, sec)
         self.L("begin purge of %s/%s" % (pri, sec))
-        table = self.dbh.table("index_" + sec)
-        for i in range(0, self.num_servers-1):
-            pri_enum = self.primary_index.enum(pri)
-            if pri_enum != None:
-                rowpre = struct.pack(">HB", i, pri_enum)
-                for key, data in tbl.scan(row_prefix=rowpre, include_timestamp=True):
-                    if data[1] < oldest_allowed:
-                        print #remove row
-                        print #remove reference from cif_objs
-            
+        
+        tables = dbh.tables()
+        table_name = "index_" + sec
+        
+        if table_name in tables:
+            tbl = dbh.table("index_" + sec)
+            for i in range(0, self.num_servers):
+                pri_enum = self.primary_index.enum(pri)
+                if pri_enum != None:
+                    print "rowpre ", i, pri_enum
+                    rowpre = struct.pack(">HB", i, pri_enum)
+                    oldest_allowed = self.lookup_max_lifespan(pri, sec)
+                    print "oldest ", oldest_allowed
+                    for key, data in tbl.scan(row_prefix=rowpre, include_timestamp=True):
+                        #print "data1 ", data
+                        data_age = data['b:iodef_rowkey'][1]
+                        #if data[1] < oldest_allowed:
+                        #    print #remove row
+                        #    print #remove reference from cif_objs
+    
+    def lookup_max_lifespan(self, pri, sec):
+        if pri != None and sec != None:
+            # index.$pri.$sec.purge_after
+            rkey = "index.%s.%s.purge_after" % (pri, sec)
+            rv = self.registry.get(rkey)
+            if rv != None:
+                return self.expand_timespec(rv)
+            else:
+                rv = self.registry.get("index.purge_after") # global fallback
+                if rv != None:
+                    return self.expand_timespec(rv)
+        return self.expand_timespec("270d")  # hardcoded default
+    
     def L(self, msg):
         caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])
         if self.debug != None:

@@ -51,7 +51,9 @@ class Indexer(object):
         
         if not self.table_name in t:
             self.dbh.create_table(self.table_name, {'b': {'COMPRESSION': 'SNAPPY'}})
-            
+        
+        table_batch_size = 5
+        
         self.table = self.dbh.table(self.table_name).batch(batch_size=table_batch_size)
         self.co_table = self.dbh.table("cif_objs").batch(batch_size=table_batch_size)
         
@@ -116,9 +118,14 @@ class Indexer(object):
             
             self.table.put(self.rowkey, rowdict)
             
+            print "len ", len(self.rowkey)
+            fmt = "2s%ds1s%ds" % (len(self.table_name), len(self.rowkey))
+            
+            prk = "b:" + self.table_name + "_" + self.rowkey
+            
             self.co_table.put(self.iodef_rowkey, 
                               {
-                               'b:' + self.table_name + "_" + self.rowkey: 1
+                               prk: "1"
                                })
             
         except Exception as e:
