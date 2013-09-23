@@ -146,20 +146,23 @@ class Purger(object):
         if table_name in tables:
             tbl = dbh.table("index_" + sec)
             for i in range(0, self.num_servers):
+                self.L("purging index_%s on server %d" %(sec, i))
+                
                 pri_enum = self.primary_index.enum(pri)
                 if pri_enum != None:
-                    print "rowpre ", i, pri_enum
                     rowpre = struct.pack(">HB", i, pri_enum)
                     oldest_allowed = self.lookup_max_lifespan(pri, sec)
                     print "oldest ", oldest_allowed
                     for key, data in tbl.scan(row_prefix=rowpre, include_timestamp=True):
                         #print "data1 ", data
                         data_age = data['b:iodef_rowkey'][1]
-                        #if data[1] < oldest_allowed:
-                        #    print #remove row
-                        #    print #remove reference from cif_objs
+                        print "\t", data_age
+                        if time.time() - data_age < oldest_allowed:
+                            print "\t\tremove row"
+                            print "\t\tremove reference from cif_objs"
     
     def lookup_max_lifespan(self, pri, sec):
+        return 86400
         if pri != None and sec != None:
             # index.$pri.$sec.purge_after
             rkey = "index.%s.%s.purge_after" % (pri, sec)

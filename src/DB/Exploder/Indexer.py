@@ -7,6 +7,7 @@ import threading
 import happybase
 import struct
 import hashlib
+import base64
 
 sys.path.append('/usr/local/lib/cif-protocol/pb-python/gen-py')
 
@@ -118,10 +119,10 @@ class Indexer(object):
             
             self.table.put(self.rowkey, rowdict)
             
-            print "len ", len(self.rowkey)
-            fmt = "2s%ds1s%ds" % (len(self.table_name), len(self.rowkey))
+            fmt = "%ds" % (len(self.table_name) + 4)
             
-            prk = "b:" + self.table_name + "_" + self.rowkey
+            prk = struct.pack(fmt, "cf:" + str(self.table_name) + "_") + self.rowkey
+            #prk = "b:" + self.table_name + "_" + self.rowkey.encode("utf-8")
             
             self.co_table.put(self.iodef_rowkey, 
                               {

@@ -1,0 +1,51 @@
+CentOS
+======
+
+Configure KRB5
+
+http://www.centos.org/docs/5/html/5.1/Deployment_Guide/s1-kerberos-server.html
+
+sudo yum install krb5-server krb5-workstation
+edit /var/kerberos/krb5kdc/kdc.conf
+	/etc/krb5.conf
+add princ for root/admin cif/admin $YOU/admin
+
+Configure Secure HDFS
+
+http://www.cloudera.com/content/cloudera-content/cloudera-docs/CDH4/4.3.0/CDH4-Security-Guide/cdh4sg_topic_3_7.html
+
+kadmin <<EOF
+addprinc -randkey HTTP/localhost@NICKELSOFT.COM
+addprinc -randkey yarn/sdev.nickelsoft.com@NICKELSOFT.COM
+addprinc -randkey mapred/sdev.nickelsoft.com@NICKELSOFT.COM
+addprinc -randkey hdfs/localhost@NICKELSOFT.COM
+addprinc -randkey HTTP/sdev.nickelsoft.com@NICKELSOFT.COM
+addprinc -randkey hbase/sdev.nickelsoft.com@NICKELSOFT.COM
+addprinc -randkey hbase/localhost@NICKELSOFT.COM
+EOF
+
+kadmin.local <<EOF
+xst -norandkey -k hdfs.keytab hdfs/localhost HTTP/localhost
+xst -norandkey -k mapred.keytab mapred/sdev.nickelsoft.com HTTP/sdev.nickelsoft.com
+xst -norandkey -k yarn.keytab yarn/sdev.nickelsoft.com HTTP/sdev.nickelsoft.com
+xst -norandkey -k /etc/hbase/conf/keytab.krb5 hbase/sdev.nickelsoft.com
+EOF
+
+sudo chown hdfs:hadoop /etc/hadoop/conf/hdfs.keytab
+sudo chown mapred:hadoop /etc/hadoop/conf/mapred.keytab
+sudo chmod 400 /etc/hadoop/conf/*.keytab
+sudo chown yarn:hadoop /etc/hadoop/conf/yarn.keytab
+sudo chmod 400 /etc/hadoop/conf/yarn.keytab
+
+adjust hdfs-site.xml core-site.xml
+start namenode datanode
+
+su - hdfs
+hdfs% kinit -k -t /etc/hadoop/conf/hdfs.keytab hdfs/sdev.nickelsoft.com@NICKELSOFT.COM
+hdfs% hdfs dfs -ls /
+
+
+sudo chown hbase /etc/hbase/conf/keytab.krb5
+
+
+
