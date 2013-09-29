@@ -2,7 +2,7 @@ import syslog
 from datetime import datetime
 import time
 import re
-import sys
+import sys, traceback
 import threading
 import happybase
 import struct
@@ -101,6 +101,19 @@ class Purger(object):
         if m.group(2) == "h":
             return int(m.group(1)) * 60 * 60
         
+    def remove_index_and_dereference(self, index_th, index_rowkey, co_tbl, index_table, document_rowkey):
+        try:
+            index_th.delete(index_rowkey)
+            co_row = co_tbl.row(document_rowkey)
+            fmt = "%ds" % (len(index_table) + 4)  # Also in Indexer
+            prk = struct.pack(fmt, "cf:" + str(index_table) + "_") + document_rowkey
+            if prk in co_row:
+                co_tbl.delete(document_rowkey, columns=[prk])
+        except Exception as e:
+            print "Failed to delete reference and index: ", index_table, e
+            traceback.print_exc(file=sys.stdout)
+
+            
     def run(self, hbhost, server):
         """
         thread:
@@ -136,6 +149,8 @@ class Purger(object):
         """
         future: submit a MR job
         current: just iterate
+        
+        FIX atm this is iodef specific, ideally we will handle other document types
         """
         print "submit purge: pri=%s sec=%s" % (pri, sec)
         self.L("begin purge of %s/%s" % (pri, sec))
@@ -145,6 +160,8 @@ class Purger(object):
         
         if table_name in tables:
             tbl = dbh.table("index_" + sec)
+            co_tbl = dbh.table("cif_objs")
+            
             for i in range(0, self.num_servers):
                 self.L("purging index_%s on server %d" %(sec, i))
                 
@@ -154,12 +171,19 @@ class Purger(object):
                     oldest_allowed = self.lookup_max_lifespan(pri, sec)
                     print "oldest ", oldest_allowed
                     for key, data in tbl.scan(row_prefix=rowpre, include_timestamp=True):
-                        #print "data1 ", data
-                        data_age = data['b:iodef_rowkey'][1]
-                        print "\t", data_age
+
+                        document_rowkey = None
+                        data_age = None
+                        if 'b:iodef_rowkey' in data:  # iodef handler
+                            data_age = data['b:iodef_rowkey'][1]
+                            document_rowkey = data['b:iodef_rowkey'][0]
+                        #elif 'b:stiix_rowkey' in data: ... etc
+                    
                         if time.time() - data_age < oldest_allowed:
                             print "\t\tremove row"
-                            print "\t\tremove reference from cif_objs"
+                            print "\t\tremove reference from cif_objs: ", table_name, document_rowkey
+                            # cif_objs.row(iodef_rowkey) will contain a column "cf:index_$sec_$thisrowkey" we want to delete that reference
+                            self.remove_index_and_dereference(tbl, key, co_tbl, table_name, document_rowkeyc)
     
     def lookup_max_lifespan(self, pri, sec):
         return 86400

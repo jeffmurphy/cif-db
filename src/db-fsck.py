@@ -123,33 +123,37 @@ def main():
     
     print "Validating cif_objs"
     
-    count = 0
-    unindexed_documents = 0
-    
-    for key, data in t.scan():
-        for col in data:
-            m = re.match(r'cf:(index_.*)_(.*)', col)
-            if m != None:
-                sub_table = m.group(1)
-                sub_rowkey = m.group(2)
-                count = count + 1
-                if (count % 1000 == 0):
-                    print count, " ",
-                    
-                if document_is_indexed(c, sub_table, sub_rowkey) == False:
-                    # the fix for unindexed documents is to reset exploder.checkpoint
-                    # and restart cif-db
-                    unindexed_documents = unindexed_documents + 1
-    
-    print "cif_objs:\n\t%d/%d unindexed documents\n" % (unindexed_documents, count)
-    if unindexed_documents > 0 and fixit == True:
-        print "\tto fix: change the registry values for exploder.checkpoint to zero and restart cif-db"
+    try:
+        count = 0
+        unindexed_documents = 0
         
-    for index_table in c.tables():
-        if re.match(r'^index_', index_table):
-            print "Validating " + index_table
-            validate_index(c, index_table, fixit)
-
+        for key, data in t.scan():
+            for col in data:
+                m = re.match(r'cf:(index_[a-z]+)_(.*)', col)
+                if m != None:
+                    sub_table = m.group(1)
+                    sub_rowkey = m.group(2)
+                    count = count + 1
+                    if (count % 1000 == 0):
+                        print count, " ",
+                        
+                    if document_is_indexed(c, sub_table, sub_rowkey) == False:
+                        # the fix for unindexed documents is to reset exploder.checkpoint
+                        # and restart cif-db
+                        unindexed_documents = unindexed_documents + 1
+        
+        print "cif_objs:\n\t%d/%d unindexed documents\n" % (unindexed_documents, count)
+        if unindexed_documents > 0 and fixit == True:
+            print "\tto fix: change the registry values for exploder.checkpoint to zero and restart cif-db"
+            
+        for index_table in c.tables():
+            if re.match(r'^index_', index_table):
+                print "Validating " + index_table
+                validate_index(c, index_table, fixit)
+    
+    except Exception as e:
+        print "Something bad happened:", e
+        
 if __name__ == '__main__':
     main()
     
