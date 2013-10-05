@@ -27,11 +27,14 @@ class Indexer(object):
 
 
     """
-    def __init__ (self, hbhost, index_type, num_servers = 1, table_batch_size = 1000, debug = 0):
+    def __init__ (self, connectionPool, index_type, num_servers = 1, table_batch_size = 1000, debug = 0):
         self.debug = debug
-        self.dbh = happybase.Connection(hbhost)
-        self.primary_index = PrimaryIndex(hbhost, debug)
-        self.log = Log(hbhost)
+        print "indexer connect"
+        self.pool = connectionPool
+        print "indexer load primary index map"
+        self.primary_index = PrimaryIndex(connectionPool, debug)
+        print "index init log"
+        self.log = Log(connectionPool)
         
         self.num_servers = num_servers
         self.packers = {}
@@ -46,21 +49,23 @@ class Indexer(object):
             except ImportError as e:
                 self.L("warning: failed to load " + packer)
                     
-        t = self.dbh.tables()
-        
-        self.table_name = "index_" + index_type
-        
-        if not self.table_name in t:
-            self.dbh.create_table(self.table_name, {'b': {'COMPRESSION': 'SNAPPY'}})
-        
-        table_batch_size = 5
-        
-        self.table = self.dbh.table(self.table_name).batch(batch_size=table_batch_size)
-        self.co_table = self.dbh.table("cif_objs").batch(batch_size=table_batch_size)
-        
-        self.reset()
-        self.md5 = hashlib.md5()
-        self.salt = Salt(self.num_servers, self.debug)
+        with self.pool.connection() as dbh:
+            t = dbh.tables()
+            
+            self.table_name = "index_" + index_type
+            
+            if not self.table_name in t:
+                self.L("index table %s doesnt exist, creating it" % (self.table_name))
+                dbh.create_table(self.table_name, {'b': {'COMPRESSION': 'SNAPPY'}})
+            
+            table_batch_size = 5
+            
+            self.table = dbh.table(self.table_name).batch(batch_size=table_batch_size)
+            self.co_table = dbh.table("cif_objs").batch(batch_size=table_batch_size)
+            
+            self.reset()
+            self.md5 = hashlib.md5()
+            self.salt = Salt(self.num_servers, self.debug)
     
     def L(self, msg):
         caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])

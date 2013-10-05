@@ -24,15 +24,16 @@ from DB.Salt import Salt
 from DB.Registry import Registry
 
 class Exploder(object):
-    def __init__ (self, hbhost, thread_tracker, debug):
+    def __init__ (self, connectionPool, thread_tracker, debug):
         self.debug = debug
-
+        self.pool = connectionPool
+        
         if thread_tracker == None:
             raise Exception("thread_tracker parameter can not be None")
         
         self.thread_tracker = thread_tracker
         
-        self.registry = Registry(hbhost, debug)
+        self.registry = Registry(connectionPool, debug)
         self.num_servers = self.registry.get('hadoop.num_servers')
         if self.num_servers == None:
             self.num_servers = 1
@@ -52,7 +53,7 @@ class Exploder(object):
         self.workers = []
         for server in range(0, self.num_servers):
             thr_title = "Exploder daemon %d of %d" % (server, self.num_servers-1)
-            worker_thr = threading.Thread(target=self.run, name=thr_title, args=(hbhost, server))
+            worker_thr = threading.Thread(target=self.run, name=thr_title, args=(server,))
             self.workers.append(worker_thr)
             worker_thr.daemon = True
             worker_thr.start()
@@ -81,7 +82,7 @@ class Exploder(object):
     def setcheckpoint(self, salt, ts):
         self.registry.set('exploder.checkpoint.' + str(salt), ts)
     
-    def run(self, hbhost, salt):
+    def run(self, salt):
         """
         run(salt)
         
@@ -95,56 +96,57 @@ class Exploder(object):
         
         self.L("Exploder thread running for salt: " + str(salt))
         
-        dbh = happybase.Connection(hbhost)
-
-        index_handler = {} # Indexer.Indexer(self.dbh, "botnet", self.num_servers, self.debug)
-        
-        while True:
-            co = dbh.table('cif_objs')
+        with self.pool.connection() as dbh:
+    
+            index_handler = {} # Indexer.Indexer(self.dbh, "botnet", self.num_servers, self.debug)
             
-            startts = self.getcheckpoint(salt)
-            endts = int(time.time())
-            processed = 0
-
-            self.L("processing: " + str(startts) + " to " + str(endts))
-            
-            if startts == 0:
-                startts = 1
+            while True:
+                co = dbh.table('cif_objs')
                 
-            srowid = struct.pack(">HIIIII", salt, startts-1, 0,0,0,0)
-            erowid = struct.pack(">HIIIII", salt, endts, 0,0,0,0)
-
-            for key, data in co.scan(row_start=srowid, row_stop=erowid):
-                contains = data.keys()[0]
-                obj_data = data[contains]
+                startts = self.getcheckpoint(salt)
+                endts = int(time.time())
+                processed = 0
+    
+                self.L("processing: " + str(startts) + " to " + str(endts))
                 
-                if contains == "cf:RFC5070_IODEF_v1_pb2":
-                    iodef = RFC5070_IODEF_v1_pb2.IODEF_DocumentType()
-                    try:
-                        iodef.ParseFromString(obj_data)
-
-                        #print "IODEF: ", iodef
-                        ii = iodef.Incident[0]
-                        table_type = ii.Assessment[0].Impact[0].content.content
-                        
-                        self.L("\tIndexing: " + table_type)
-                
-                        # check to make sure table_name is in index.secondary
-                        #   index.secondary contains a list of configured/permitted secondary index types
-                        
-                        if not table_type in index_handler:
-                            index_handler[table_type] = Indexer.Indexer(hbhost, table_type, self.num_servers, self.batch_size, self.debug)
-                        
-                        index_handler[table_type].extract(key, iodef)
-                        processed = processed + 1
-
-                    except Exception as e:
-                        print "Failed to parse restored object: ", e
-                        traceback.print_exc()
-                else:
-                    print "Contains an unsupported object type: ", contains
-                
-            time.sleep(5)
-            if processed > 0:
-                self.setcheckpoint(salt, endts)
+                if startts == 0:
+                    startts = 1
+                    
+                srowid = struct.pack(">HIIIII", salt, startts-1, 0,0,0,0)
+                erowid = struct.pack(">HIIIII", salt, endts, 0,0,0,0)
+    
+                for key, data in co.scan(row_start=srowid, row_stop=erowid):
+                    contains = data.keys()[0]
+                    obj_data = data[contains]
+                    
+                    if contains == "cf:RFC5070_IODEF_v1_pb2":
+                        iodef = RFC5070_IODEF_v1_pb2.IODEF_DocumentType()
+                        try:
+                            iodef.ParseFromString(obj_data)
+    
+                            #print "IODEF: ", iodef
+                            ii = iodef.Incident[0]
+                            table_type = ii.Assessment[0].Impact[0].content.content
+                            
+                            self.L("\tIndexing: " + table_type)
+                    
+                            # check to make sure table_name is in index.secondary
+                            #   index.secondary contains a list of configured/permitted secondary index types
+                            
+                            if not table_type in index_handler:
+                                self.L("index handler for table type %s doesnt exist, creating a new handler thread" % (table_type))
+                                index_handler[table_type] = Indexer.Indexer(self.pool, table_type, self.num_servers, self.batch_size, self.debug)
+                            
+                            index_handler[table_type].extract(key, iodef)
+                            processed = processed + 1
+    
+                        except Exception as e:
+                            print "Failed to parse restored object: ", e
+                            traceback.print_exc()
+                    else:
+                        print "Contains an unsupported object type: ", contains
+                    
+                time.sleep(5)
+                if processed > 0:
+                    self.setcheckpoint(salt, endts)
             

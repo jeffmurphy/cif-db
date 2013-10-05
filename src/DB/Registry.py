@@ -8,17 +8,16 @@ import socket
 import happybase
 
 class Registry(object):
-    def __init__ (self, hbhost, debug):
+    def __init__ (self, connectionPool, debug):
         self.debug = debug
-        self.lock = threading.RLock()
-        self.dbh = happybase.Connection(hbhost)
+        self.pool = connectionPool
 
-        t = self.dbh.tables()
-        if not "registry" in t:
-            raise Exception("missing registry table")
-
-        self.table = self.dbh.table('registry')
-        
+        with self.pool.connection() as dbh:
+            print "reg load tables"
+            t = dbh.tables()
+            if not "registry" in t:
+                print "reg table doesnt exist, throwing"
+                raise Exception("missing registry table")
         
     def L(self, msg):
         caller =  ".".join([str(__name__), sys._getframe(1).f_code.co_name])
@@ -36,27 +35,31 @@ class Registry(object):
         if k is not None: return the value or None if it doesnt exist
         if k is None: return a list of all registry keys (list may be empty)
         """
-        if k != None:
-            r = self.table.row(k)
-            if r != None:
-                if 'b:type' in r and 'b:value' in r:
-                    if r['b:type'] in ["int"]:
-                        return int(r['b:value'])
-                    if r['b:type'] in ["long"]:
-                        return long(r['b:value'])
-                    if r['b:type'] in ["double", "float"]:
-                        return float(r['b:value'])
-                    return str(r['b:value'])
-                return None
-        else:
-            r = self.table.scan()
-            rv = []
-            for tk, tv in r:
-                rv.append(tk)
-            return rv
+        with self.pool.connection() as connection:
+            table = connection.table('registry')
+            if k != None:
+                r = table.row(k)
+                if r != None:
+                    if 'b:type' in r and 'b:value' in r:
+                        if r['b:type'] in ["int"]:
+                            return int(r['b:value'])
+                        if r['b:type'] in ["long"]:
+                            return long(r['b:value'])
+                        if r['b:type'] in ["double", "float"]:
+                            return float(r['b:value'])
+                        return str(r['b:value'])
+                    return None
+            else:
+                r = table.scan()
+                rv = []
+                for tk, tv in r:
+                    rv.append(tk)
+                return rv
         
     def delete(self, k):
-        self.table.delete(k)
+        with self.pool.connection() as connection:
+            table = connection.table('registry')
+            table.delete(k)
         
     def set(self, k, v):
         at = None
@@ -72,5 +75,7 @@ class Registry(object):
         elif type(v) is double:
             at = "double"
         
-        self.table.put(k, {"b:type": at, "b:value": av})
+        with self.pool.connection() as connection:
+            table = connection.table('registry')
+            table.put(k, {"b:type": at, "b:value": av})
          

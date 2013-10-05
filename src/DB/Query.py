@@ -33,13 +33,14 @@ a queryResponse object
 """
 
 class Query(object):
-    def __init__ (self, hbhost, p_index, s_index, debug):
+    def __init__ (self, connectionPool, p_index, s_index, debug):
         self.debug = debug
         self.primary_index = p_index
         self.secondary_index = s_index
+        self.pool = connectionPool
         
         try:
-            self.registry = Registry(hbhost, debug)
+            self.registry = Registry(connectionPool, debug)
             self.num_servers = self.registry.get('hadoop.num_servers')
             
             if self.num_servers == None:
@@ -56,10 +57,10 @@ class Query(object):
                     self.packers[packer] = getattr(pkg, packer)
                 except ImportError as e:
                     self.L("warning: failed to load " + packer)
-                                
-            self.dbh = happybase.Connection(hbhost)
-            self.tbl_co = self.dbh.table('cif_objs')
-            self.available_tables = self.dbh.tables()
+                  
+            with self.pool.connection() as dbh:
+                self.tbl_co = dbh.table('cif_objs')
+                self.available_tables = dbh.tables()
             
         except Exception as e:
             self.L("failed to open tables")
@@ -329,53 +330,54 @@ class Query(object):
             qrs.ReportTime = datetime.datetime.now().isoformat(' ')
             qrs.description = self.qr.query
         
-            for server in range(0, self.num_servers):
-                for secondary in secondaries_to_scan:
-                    
-                    table_name = "index_" + secondary
-                    if not table_name in self.available_tables:
-                        continue
-                    table = self.dbh.table(table_name)
-                    
-                    if decoded_query['primary'] != None:
-                        if len(decoded_query['primary']) == 1:
-                            rowprefix = struct.pack('>HB', server, decoded_query['primary'][0])
-
-                            # limiter/type and limiter/value are always present but may be None
-                            if decoded_query['limiter']['type'] != None:
-                                packer = self.primary_index.name(decoded_query['limiter']['type']) # use 'prinames' instead of this lookup
-                                rowprefix = rowprefix + self.packers[packer].pack(decoded_query['limiter']['value'])
-                            
-                            for key, value in table.scan(row_prefix=rowprefix):
-                                iodef_rowkey = value['b:iodef_rowkey']
-                                iodef_row = self.tbl_co.row(iodef_rowkey)
-                                _bot = (iodef_row.keys())[0]
-                                iodoc = iodef_row[_bot]
-                                bot = (_bot.split(":"))[1]
-                                qrs.baseObjectType.append(bot)
-                                qrs.data.append(iodoc)
-                    
-                        elif len(decoded_query['primary']) == 2:
-                            
-                            startrow = struct.pack('>HB', server, decoded_query['primary'][0])
-                            stoprow = struct.pack('>HB', server, decoded_query['primary'][1])
-
-                            if decoded_query['limiter']['type'] != None:
-                                print "limiter given of type " + self.primary_index.name(decoded_query['limiter']['type'])
+            with self.pool.connection() as dbh:
+                for server in range(0, self.num_servers):
+                    for secondary in secondaries_to_scan:
+                        
+                        table_name = "index_" + secondary
+                        if not table_name in self.available_tables:
+                            continue
+                        table = dbh.table(table_name)
+                        
+                        if decoded_query['primary'] != None:
+                            if len(decoded_query['primary']) == 1:
+                                rowprefix = struct.pack('>HB', server, decoded_query['primary'][0])
+    
+                                # limiter/type and limiter/value are always present but may be None
+                                if decoded_query['limiter']['type'] != None:
+                                    packer = self.primary_index.name(decoded_query['limiter']['type']) # use 'prinames' instead of this lookup
+                                    rowprefix = rowprefix + self.packers[packer].pack(decoded_query['limiter']['value'])
+                                
+                                for key, value in table.scan(row_prefix=rowprefix):
+                                    iodef_rowkey = value['b:iodef_rowkey']
+                                    iodef_row = self.tbl_co.row(iodef_rowkey)
+                                    _bot = (iodef_row.keys())[0]
+                                    iodoc = iodef_row[_bot]
+                                    bot = (_bot.split(":"))[1]
+                                    qrs.baseObjectType.append(bot)
+                                    qrs.data.append(iodoc)
+                        
+                            elif len(decoded_query['primary']) == 2:
+                                
+                                startrow = struct.pack('>HB', server, decoded_query['primary'][0])
+                                stoprow = struct.pack('>HB', server, decoded_query['primary'][1])
+    
+                                if decoded_query['limiter']['type'] != None:
+                                    print "limiter given of type " + self.primary_index.name(decoded_query['limiter']['type'])
+                                    print "we shouldnt get here"
+                                    
+                                for key, value in table.scan(row_start=startrow, row_stop=stoprow):
+                                    iodef_rowkey = value['b:iodef_rowkey']
+                                    iodef_row = self.tbl_co.row(iodef_rowkey)
+                                    _bot = (iodef_row.keys())[0]
+                                    iodoc = iodef_row[_bot]
+                                    bot = (_bot.split(":"))[1]
+                                    qrs.baseObjectType.append(bot)
+                                    qrs.data.append(iodoc)
+                                    
+                        elif decoded_query['primary'] == None:
+                                print "no primary given case"
                                 print "we shouldnt get here"
-                                
-                            for key, value in table.scan(row_start=startrow, row_stop=stoprow):
-                                iodef_rowkey = value['b:iodef_rowkey']
-                                iodef_row = self.tbl_co.row(iodef_rowkey)
-                                _bot = (iodef_row.keys())[0]
-                                iodoc = iodef_row[_bot]
-                                bot = (_bot.split(":"))[1]
-                                qrs.baseObjectType.append(bot)
-                                qrs.data.append(iodoc)
-                                
-                    elif decoded_query['primary'] == None:
-                            print "no primary given case"
-                            print "we shouldnt get here"
                 
             return qrs
         

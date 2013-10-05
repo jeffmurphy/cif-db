@@ -38,22 +38,22 @@ class Purger(object):
     record them in threadtracker
 
     """
-    def __init__(self, hbhost, num_servers = 1, thread_tracker = None, debug = 0):
+    def __init__(self, connectionPool, num_servers = 1, thread_tracker = None, debug = 0):
         self.debug = debug
-        self.hbhost = hbhost
+        self.pool = connectionPool
         
-        self.log = Log(hbhost)
+        self.log = Log(connectionPool)
         
-        self.log.L("cif-db Purger initializing")
+        self.L("cif-db Purger initializing")
         
         if thread_tracker == None:
             raise Exception("thread_tracker parameter can not be None")
         
         self.thread_tracker = thread_tracker
-        self.registry = Registry(hbhost, debug)
+        self.registry = Registry(connectionPool, debug)
         
-        self.primary_index = PrimaryIndex(hbhost)
-        self.secondary_index = SecondaryIndex(hbhost)
+        self.primary_index = PrimaryIndex(connectionPool)
+        self.secondary_index = SecondaryIndex(connectionPool)
         
         self.num_servers = self.registry.get('hadoop.num_servers')
         if self.num_servers == None:
@@ -74,12 +74,12 @@ class Purger(object):
         self.workers = []
         for server in range(0, self.num_servers):
             thr_title = "Purger daemon %d of %d" % (server, self.num_servers-1)
-            worker_thr = threading.Thread(target=self.run, name=thr_title, args=(hbhost, server))
+            worker_thr = threading.Thread(target=self.run, name=thr_title, args=(server,))
             self.workers.append(worker_thr)
             worker_thr.daemon = True
             worker_thr.start()
             while not worker_thr.isAlive():
-                print "waiting for purger/worker thread to become alive"
+                self.log.L("waiting for purger/worker thread to become alive")
                 time.sleep(1)
             self.L(thr_title)
             self.thread_tracker.add(id=worker_thr.ident, user='Purger', host=socket.gethostname(), state='Running', info=thr_title)
@@ -110,11 +110,9 @@ class Purger(object):
             if prk in co_row:
                 co_tbl.delete(document_rowkey, columns=[prk])
         except Exception as e:
-            print "Failed to delete reference and index: ", index_table, e
-            traceback.print_exc(file=sys.stdout)
-
+            self.L("Failed to delete reference and index: " + index_table + str(e) + traceback.format_exc(None))
             
-    def run(self, hbhost, server):
+    def run(self, server):
         """
         thread:
         
@@ -125,25 +123,24 @@ class Purger(object):
                     record pri in a pri_list
                 submit purge job(difference of the sets all_pris and pri_list / sec)
         """
-        dbh = happybase.Connection(hbhost)
-        secondaries = set(self.secondary_index.names())
-        primaries = set(self.primary_index.names())
-        dbh = happybase.Connection(hbhost)
-
-        while True:
-            pri_done = []
-            for sec in secondaries:
-                for pri in primaries:
-                    if self.primary_index.is_group(pri) == False:
-                        self.submit_purge_job(dbh, pri, sec)
-                    pri_done.append(pri)  # remove groups too
-                # pri_done is a subset of primaries
-                diff = primaries - set(pri_done)
-                if len(diff) > 0:
-                    self.submit_purge_job(dbh, diff, sec)
-                
-            time.sleep(self.purge_every)
-            self.L("Purger awake after " + str(self.purge_every) + " seconds")
+        with self.pool.connection() as dbh:
+            secondaries = set(self.secondary_index.names())
+            primaries = set(self.primary_index.names())
+    
+            while True:
+                pri_done = []
+                for sec in secondaries:
+                    for pri in primaries:
+                        if self.primary_index.is_group(pri) == False:
+                            self.submit_purge_job(dbh, pri, sec)
+                        pri_done.append(pri)  # remove groups too
+                    # pri_done is a subset of primaries
+                    diff = primaries - set(pri_done)
+                    if len(diff) > 0:
+                        self.submit_purge_job(dbh, diff, sec)
+                    
+                time.sleep(self.purge_every)
+                self.L("Purger awake after " + str(self.purge_every) + " seconds")
             
     def submit_purge_job(self, dbh, pri, sec):
         """
@@ -152,7 +149,6 @@ class Purger(object):
         
         FIX atm this is iodef specific, ideally we will handle other document types
         """
-        print "submit purge: pri=%s sec=%s" % (pri, sec)
         self.L("begin purge of %s/%s" % (pri, sec))
         
         tables = dbh.tables()
@@ -169,7 +165,6 @@ class Purger(object):
                 if pri_enum != None:
                     rowpre = struct.pack(">HB", i, pri_enum)
                     oldest_allowed = self.lookup_max_lifespan(pri, sec)
-                    print "oldest ", oldest_allowed
                     for key, data in tbl.scan(row_prefix=rowpre, include_timestamp=True):
 
                         document_rowkey = None
@@ -180,10 +175,8 @@ class Purger(object):
                         #elif 'b:stiix_rowkey' in data: ... etc
                     
                         if time.time() - data_age < oldest_allowed:
-                            print "\t\tremove row"
-                            print "\t\tremove reference from cif_objs: ", table_name, document_rowkey
                             # cif_objs.row(iodef_rowkey) will contain a column "cf:index_$sec_$thisrowkey" we want to delete that reference
-                            self.remove_index_and_dereference(tbl, key, co_tbl, table_name, document_rowkeyc)
+                            self.remove_index_and_dereference(tbl, key, co_tbl, table_name, document_rowkey)
     
     def lookup_max_lifespan(self, pri, sec):
         return 86400

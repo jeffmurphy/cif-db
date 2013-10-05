@@ -17,9 +17,10 @@ class PrimaryIndex(object):
 	infrastructure = ipv4,ipv6
 	
 	"""
-	def __init__ (self, hbhost, debug=0):
+	def __init__ (self, connectionPool, debug=0):
 		self.debug = debug
-		self.registry = Registry(hbhost, debug)
+		self.pool = connectionPool
+		self.registry = Registry(connectionPool, debug)
 		self.index_to_enum = {}  # name -> enum
 		self.enum_to_index = {}  # enum -> name
     	

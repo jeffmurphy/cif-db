@@ -70,15 +70,17 @@ def usage():
     #     -m  my name\n"
     
 
-def HBConnection(host):
-    c = happybase.Connection(host)
-    t = c.tables()
+def HBConnection(hbhost):
+    pool = happybase.ConnectionPool(size=25, host=hbhost)
+    with pool.connection() as connection:
+        t = connection.tables()
+        
     print "found tables: ", t
     if not "cif_idl" in t:
         raise Exception("missing cif_idl table")
     if not "cif_objs" in t:
         raise Exception("missing cif_objs table")
-    return c
+    return pool
 
 """
 Given a msg object, we want to record its IDL (for posterity)
@@ -315,94 +317,95 @@ global thread_tracker
 try:
     
     print "Connect to HBase"
-    connection = HBConnection(hbhost)
-    cif_objs = connection.table('cif_objs').batch(batch_size=5) # set very low for development, set to 1000+ for test/qa/prod
-    cif_idl = connection.table('cif_idl')
-    
-    print "Init Registry"
-    registry = Registry(hbhost, debug)
-    num_servers = registry.get('hadoop.num_servers')
-    if num_servers == None:
-        num_servers = 1
-        print "hadoop.num_servers not set. defaulting."
-    print "hadoop.num_servers = ", num_servers
-    salt = Salt(num_servers, debug)
-
-    thread_tracker = ThreadTracker(debug)
-    
-    global apikeys
-    
-    log = Log(hbhost)
-    log.L("cif-db initializing")
-    
-    print "Initializing APIKeys object"
-    apikeys = APIKeys(connection, True)
-    
-    print "Resolving our APIKey: " + myid
-    
-    apikey = apikeys.get_by_alias(myid)
-    
-    print "Initializing foundation"
-    
-    cf = Foundation({'apikey' : apikey,
-                     'myip'   : myip,
-                     'cifrouter' : cifrouter,
-                     'controlport' : controlport,
-                     'myid' : myid,
-                     'routerid' : "cif-router",
-                     'thread_tracker' : thread_tracker
-                     })
-
-    primary_index = PrimaryIndex(hbhost, debug)
-    secondary_index = SecondaryIndex(hbhost, debug)
-    
-    print "Configuring foundation"
-    
-    cf.setdebug(debug)
-    cf.setdefaultcallback(controlMessageHandler)
-    
-    print "Register with " + cifrouter + " (req->rep)"
-    req = cf.ctrlsocket()
-
-    # apikey, req, myip, myid, cifrouter
-    (routerport, routerpubport) = cf.register()
-
-    subscriber = cf.subscribersocket()
-    
-    time.sleep(1) # wait for router to connect, sort of lame but see this a lot in zmq code
-    
-    print "Initializing Exploder"
-    exploder = Exploder.Exploder(hbhost, thread_tracker, False)
-    
-    print "Initializing Purger"
-    purger = Purger.Purger(hbhost, num_servers, thread_tracker, True)
-    
-    while True:
-        msg = msg_pb2.MessageType()
-        msg.ParseFromString(subscriber.recv())
-
+    connectionPool = HBConnection(hbhost)
+    with connectionPool.connection() as connection:
+        cif_objs = connection.table('cif_objs').batch(batch_size=5) # set very low for development, set to 1000+ for test/qa/prod
+        cif_idl = connection.table('cif_idl')
         
-        if apikeys.is_valid(msg.apikey):
-            if msg.type == msg_pb2.MessageType.SUBMISSION and len(msg.submissionRequest) > 0:
-                #print "Got a SUBMISSION. Saving."
-                for i in range(0, len(msg.submissionRequest)):
-                    writeToDb(cif_objs, cif_idl, msg.submissionRequest[i], salt.next())
-            
-            # ignore QUERY logic at present, see controlmessagehandler, above, instead
-            # we arent processing QUERYs recvd via this PUB/SUB connection 
-            elif msg.type == msg_pb2.MessageType.QUERY and len(msg.queryRequest) > 0:
-                print "Got an unexected QUERY on PUB/SUB interface"
-            else:
-                print "Wrong or empty message recvd on subscriber port. Expected submission or query (" + \
-                    str(msg_pb2.MessageType.SUBMISSION) + " or " +                               \
-                    str(msg_pb2.MessageType.QUERY) + ")  got " +                                 \
-                    str(msg.type) + " number of parts (should be > 0) SR:" +                     \
-                    str(len(msg.submissionRequest)) + " / QR:" + str(len(msg.queryRequest)) 
-        else:
-            print "message has an invalid apikey"
-            
-    cf.unregister()
+        print "Init Registry"
+        registry = Registry(connectionPool, debug)
+        num_servers = registry.get('hadoop.num_servers')
+        if num_servers == None:
+            num_servers = 1
+            print "hadoop.num_servers not set. defaulting."
+        print "hadoop.num_servers = ", num_servers
+        salt = Salt(num_servers, debug)
     
+        thread_tracker = ThreadTracker(debug)
+        
+        global apikeys
+        
+        log = Log(connectionPool)
+        log.L("cif-db initializing")
+        
+        print "Initializing APIKeys object"
+        apikeys = APIKeys(connection, True)
+        
+        print "Resolving our APIKey: " + myid
+        
+        apikey = apikeys.get_by_alias(myid)
+        
+        print "Initializing foundation"
+        
+        cf = Foundation({'apikey' : apikey,
+                         'myip'   : myip,
+                         'cifrouter' : cifrouter,
+                         'controlport' : controlport,
+                         'myid' : myid,
+                         'routerid' : "cif-router",
+                         'thread_tracker' : thread_tracker
+                         })
+    
+        primary_index = PrimaryIndex(connectionPool, debug)
+        secondary_index = SecondaryIndex(connectionPool, debug)
+        
+        print "Configuring foundation"
+        
+        cf.setdebug(debug)
+        cf.setdefaultcallback(controlMessageHandler)
+        
+        print "Register with " + cifrouter + " (req->rep)"
+        req = cf.ctrlsocket()
+    
+        # apikey, req, myip, myid, cifrouter
+        (routerport, routerpubport) = cf.register()
+    
+        subscriber = cf.subscribersocket()
+        
+        time.sleep(1) # wait for router to connect, sort of lame but see this a lot in zmq code
+        
+        print "Initializing Exploder"
+        exploder = Exploder.Exploder(connectionPool, thread_tracker, False)
+        
+        print "Initializing Purger"
+        purger = Purger.Purger(connectionPool, num_servers, thread_tracker, True)
+        
+        while True:
+            msg = msg_pb2.MessageType()
+            msg.ParseFromString(subscriber.recv())
+    
+            
+            if apikeys.is_valid(msg.apikey):
+                if msg.type == msg_pb2.MessageType.SUBMISSION and len(msg.submissionRequest) > 0:
+                    #print "Got a SUBMISSION. Saving."
+                    for i in range(0, len(msg.submissionRequest)):
+                        writeToDb(cif_objs, cif_idl, msg.submissionRequest[i], salt.next())
+                
+                # ignore QUERY logic at present, see controlmessagehandler, above, instead
+                # we arent processing QUERYs recvd via this PUB/SUB connection 
+                elif msg.type == msg_pb2.MessageType.QUERY and len(msg.queryRequest) > 0:
+                    print "Got an unexected QUERY on PUB/SUB interface"
+                else:
+                    print "Wrong or empty message recvd on subscriber port. Expected submission or query (" + \
+                        str(msg_pb2.MessageType.SUBMISSION) + " or " +                               \
+                        str(msg_pb2.MessageType.QUERY) + ")  got " +                                 \
+                        str(msg.type) + " number of parts (should be > 0) SR:" +                     \
+                        str(len(msg.submissionRequest)) + " / QR:" + str(len(msg.queryRequest)) 
+            else:
+                print "message has an invalid apikey"
+                
+        cf.unregister()
+        
 except KeyboardInterrupt:
     print "\n\nShutting down.\n\n"
     if cif_objs != None:

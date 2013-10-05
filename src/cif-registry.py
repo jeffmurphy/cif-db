@@ -29,10 +29,9 @@ import cifsupport
 
 from DB.Registry import Registry
 
-def HBConnection(host):
-    c = happybase.Connection(host)
-
-    return c
+def HBConnection(hbhost):
+    pool = happybase.ConnectionPool(size=25, host=hbhost)
+    return pool
 
     
 def usage():
@@ -49,19 +48,20 @@ def cast(t, v):
     return str(v)
                 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], 't:v:k:d:D:h')
+    opts, args = getopt.getopt(sys.argv[1:], 't:v:k:d:D:H:h')
     
     debug = 0
     key_type = None
     key_value = None
     key_name = None
     del_name = None
-    
-    connection = HBConnection("localhost")
+    hbhost = "localhost"
     
     for o, a in opts:
         if o == "-t":
             key_type = a
+        elif o == "-H":
+            hbhost = a
         elif o == "-v":
             key_value = a
         elif o == "-k":
@@ -74,8 +74,8 @@ try:
         elif o == "-D":
             debug = a
     
-    
-    reg = Registry("localhost", debug)
+    connectionPool = HBConnection(hbhost)
+    reg = Registry(connectionPool, debug)
     
     if del_name != None:
         reg.delete(del_name)
