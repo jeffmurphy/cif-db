@@ -107,7 +107,7 @@ class Exploder(object):
                 endts = int(time.time())
                 processed = 0
     
-                self.L("processing: " + str(startts) + " to " + str(endts))
+                #self.L("processing: " + str(startts) + " to " + str(endts))
                 
                 if startts == 0:
                     startts = 1
