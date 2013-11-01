@@ -306,7 +306,12 @@ for o, a in opts:
     elif o == "-D":
         debug = a
 
-myip = socket.gethostbyname(socket.gethostname()) # has caveats
+myip = "127.0.0.1"
+
+try:
+    myip = socket.gethostbyname(socket.gethostname()) # has caveats
+except Exception as e:
+    print "can't determine myip based on my hostname: ", socket.gethostname()
 
 global cf
 global exploder
