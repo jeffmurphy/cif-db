@@ -351,11 +351,14 @@ class Query(object):
                                 for key, value in table.scan(row_prefix=rowprefix):
                                     iodef_rowkey = value['b:iodef_rowkey']
                                     iodef_row = self.tbl_co.row(iodef_rowkey)
-                                    _bot = (iodef_row.keys())[0]
-                                    iodoc = iodef_row[_bot]
-                                    bot = (_bot.split(":"))[1]
-                                    qrs.baseObjectType.append(bot)
-                                    qrs.data.append(iodoc)
+                                    
+                                    for key, value in iodef_row:
+                                        if re.match(r'cf:index_', key) == None:
+                                            bot = (key.split(":"))[1]
+                                            qrs.baseObjectType.append(bot)
+                                            qrs.data.append(value)
+                                            break
+
                         
                             elif len(decoded_query['primary']) == 2:
                                 
@@ -369,11 +372,13 @@ class Query(object):
                                 for key, value in table.scan(row_start=startrow, row_stop=stoprow):
                                     iodef_rowkey = value['b:iodef_rowkey']
                                     iodef_row = self.tbl_co.row(iodef_rowkey)
-                                    _bot = (iodef_row.keys())[0]
-                                    iodoc = iodef_row[_bot]
-                                    bot = (_bot.split(":"))[1]
-                                    qrs.baseObjectType.append(bot)
-                                    qrs.data.append(iodoc)
+                                    
+                                    for key, value in iodef_row:
+                                        if re.match(r'cf:index_', key) == None:
+                                            bot = (key.split(":"))[1]
+                                            qrs.baseObjectType.append(bot)
+                                            qrs.data.append(value)
+                                            break
                                     
                         elif decoded_query['primary'] == None:
                                 print "no primary given case"

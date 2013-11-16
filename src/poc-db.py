@@ -142,10 +142,15 @@ def apikey_row_to_akr(row):
         
         return akr
                 
-def controlMessageHandler(msg):
+def controlMessageHandler(msg, params):
     if debug > 0:
         print "controlMessageHandler: Got a control message: "#, msg
-        
+    
+    connectionPool = None
+    if params != None:
+        if 'connectionPool' in params:
+            connectionPool = params['connectionPool']
+    
     if msg.type == control_pb2.ControlType.COMMAND:
         thread_tracker.add(id=threading.current_thread().ident, user=pwd.getpwuid(os.getuid())[0], host=socket.gethostname(), state='Running', info="controlMessageHandler", 
                             command=control_pb2._CONTROLTYPE_COMMANDTYPE.values_by_number[msg.command].name)
@@ -261,7 +266,7 @@ def controlMessageHandler(msg):
             msg.status = control_pb2.ControlType.SUCCESS
 
             for i in range(0, len(msg.queryRequestList.query)):
-                qe = Query(hbhost, primary_index, secondary_index, True) # TODO move this line outside of this routine
+                qe = Query(connectionPool, primary_index, secondary_index, True) # TODO move this line outside of this routine
                 qe.setqr(msg.queryRequestList.query[i])
                 qe.setlimit(msg.queryRequestList.limit)
                 try:
@@ -367,7 +372,7 @@ try:
         print "Configuring foundation"
         
         cf.setdebug(debug)
-        cf.setdefaultcallback(controlMessageHandler)
+        cf.setdefaultcallback(controlMessageHandler, {'connectionPool': connectionPool})
         
         print "Register with " + cifrouter + " (req->rep)"
         req = cf.ctrlsocket()
